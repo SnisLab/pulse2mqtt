@@ -1,0 +1,81 @@
+version: 2
+project_name: pulse2mqtt
+
+builds:
+  - id: pulse2mqtt
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X pulse2mqtt/include/version.Version={{ .Version }}
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - 7
+    ignore:
+      - goos: darwin
+        goarch: arm
+        goarm: 7
+      - goos: windows
+        goarch: arm
+        goarm: 7
+
+snapshot:
+  version_template: "{{ .Version }}.{{ .Env.RUNNUMBER }}-edge"
+
+archives:
+  - id: pulse2mqtt
+    ids:
+      - pulse2mqtt
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+
+nfpms:
+  - id: pulse2mqtt-deb
+    package_name: pulse2mqtt
+    file_name_template: "{{ .PackageName }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    ids:
+      - pulse2mqtt
+    maintainer: DerSni <31524614+DjSni@users.noreply.github.com>
+    description: Pulse2MQTT is a little tool to read a Tibber Pulse and export it to a MQTT-Server
+    homepage: https://github.com/SnisLab/pulse2mqtt
+    license: MIT
+    bindir: /usr/local/bin
+    contents:
+      - src: settings.default.yaml
+        dst: /usr/local/etc/pulse2mqtt/settings.default.yaml
+        type: config
+      - src: ./debian/systemd/pulse2mqtt.service
+        dst: /etc/systemd/system/pulse2mqtt.service
+    scripts:
+      preinstall: ./debian/scripts/preinstall.sh
+      postinstall: ./debian/scripts/postinstall.sh
+      preremove: ./debian/scripts/preremove.sh
+    formats:
+      - deb
+
+  - id: pulse2mqtt-apk
+    package_name: pulse2mqtt
+    file_name_template: "{{ .PackageName }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    ids:
+      - pulse2mqtt
+    maintainer: DerSni <31524614+DjSni@users.noreply.github.com>
+    description: Pulse2MQTT is a little tool to read a Tibber Pulse and export it to a MQTT-Server
+    homepage: https://github.com/SnisLab/pulse2mqtt
+    license: MIT
+    bindir: /usr/local/bin
+    contents:
+      - src: settings.default.yaml
+        dst: /usr/local/etc/pulse2mqtt/settings.default.yaml
+        type: config
+    formats:
+      - apk
+
+checksum:
+  name_template: checksums.txt

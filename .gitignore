@@ -1,0 +1,6 @@
+/dist/
+/pulse2mqtt
+/pulse2mqtt.exe
+/settings.yaml
+/.env
+/.env.*

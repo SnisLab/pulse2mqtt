@@ -1,0 +1,14 @@
+[Unit]
+Description=Pulse2MQTT is a little tool to read a Tibber Pulse and export it to a MQTT-Server
+Documentation=
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=on-failure
+RestartSec=4s
+Type=simple
+ExecStart=/usr/local/bin/pulse2mqtt
+
+[Install]
+WantedBy=multi-user.target

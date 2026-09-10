@@ -1,0 +1,20 @@
+service:
+  mqtt:
+    host: ip_or_hostname
+    port: 1883
+    user: user
+    pass: password
+    topics:
+      data: home/zentrale/meter/pulse/power
+      metrics: home/zentrale/meter/pulse/metric
+  pulse:
+    user: admin
+    password: ABC1-23DE
+    ip: ip_or_hostname
+    node: 1
+    battery_profile: regulated_1_5v
+  home_assistant:
+    discovery: false
+    discovery_prefix: homeassistant
+    device_id: pulse2mqtt
+    device_name: Tibber Pulse

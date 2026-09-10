@@ -1,0 +1,182 @@
+name: goreleaser
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.27.0
+          cache: true
+      - name: Test
+        run: go test ./...
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          install-only: true
+      - name: Check GoReleaser configuration
+        run: goreleaser check
+
+  release:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.27.0
+          cache: true
+      - name: Determine release mode
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          version="$(sed -nE 's/^var Version = "([^"]+)"$/\1/p' include/version/version.go)"
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version in include/version/version.go: ${version}" >&2
+            exit 1
+          fi
+
+          stable_tag="v${version}"
+          mode="edge"
+
+          if git rev-parse --verify --quiet "refs/tags/${stable_tag}" >/dev/null; then
+            tag_sha="$(git rev-list -n 1 "${stable_tag}")"
+            if [[ "${tag_sha}" == "${GITHUB_SHA}" ]]; then
+              if gh release view "${stable_tag}" >/dev/null 2>&1; then
+                mode="skip"
+              else
+                mode="stable"
+              fi
+            fi
+          else
+            mode="stable"
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "stable_tag=${stable_tag}" >> "${GITHUB_OUTPUT}"
+          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+          echo "build_version=${version}.${{ github.run_number }}-edge" >> "${GITHUB_OUTPUT}"
+          echo "Release mode: ${mode}"
+
+      - name: Create stable tag
+        if: steps.release.outputs.mode == 'stable'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.release.outputs.stable_tag }}"
+          if ! git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag --annotate "${tag}" --message "Release ${tag}"
+            git push origin "${tag}"
+          fi
+
+      - name: Publish stable release
+        if: steps.release.outputs.mode == 'stable'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger Home Assistant app build
+        if: steps.release.outputs.mode == 'stable'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.APP_PULSE2MQTT_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg version "${VERSION}" \
+            --arg tag "v${VERSION}" \
+            --arg sha "${SHA}" \
+            --arg image "ghcr.io/snislab/pulse2mqtt:${VERSION}" \
+            '{event_type: "release-built", client_payload: {repository: "pulse2mqtt", version: $version, tag: $tag, sha: $sha, image: $image}}' \
+            | gh api --method POST repos/SnisLab/app-pulse2mqtt/dispatches --input -
+
+      - name: Build edge packages
+        if: steps.release.outputs.mode == 'edge'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean --snapshot
+        env:
+          GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.stable_tag }}
+          RUNNUMBER: ${{ github.run_number }}
+
+      - name: Publish edge release
+        if: steps.release.outputs.mode == 'edge'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_VERSION: ${{ steps.release.outputs.build_version }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --force edge "${GITHUB_SHA}"
+          git push --force origin refs/tags/edge
+
+          notes="${RUNNER_TEMP}/edge-release-notes.md"
+          printf 'Automated edge build `%s` from commit `%s`.\n' \
+            "${BUILD_VERSION}" "${GITHUB_SHA}" > "${notes}"
+
+          if gh release view edge >/dev/null 2>&1; then
+            gh release edit edge \
+              --title "Edge ${BUILD_VERSION}" \
+              --notes-file "${notes}" \
+              --prerelease
+          else
+            gh release create edge \
+              --target "${GITHUB_SHA}" \
+              --title "Edge ${BUILD_VERSION}" \
+              --notes-file "${notes}" \
+              --prerelease
+          fi
+
+          gh release upload edge \
+            dist/*.apk \
+            dist/*.deb \
+            dist/*.tar.gz \
+            dist/checksums.txt \
+            --clobber
+
+      - name: No release required
+        if: steps.release.outputs.mode == 'skip'
+        run: |
+          echo "Stable release ${{ steps.release.outputs.stable_tag }} already exists for this commit"

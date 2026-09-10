@@ -1,0 +1,16 @@
+/.git/
+/.github/
+/debian/
+/dist/
+/.dockerignore
+/.env
+/.env.*
+/.gitignore
+/.goreleaser.yaml
+/README.md
+/renovate.json5
+/pulse2mqtt
+/pulse2mqtt.exe
+/settings.yaml
+/settings.default.yaml
+**/*_test.go
