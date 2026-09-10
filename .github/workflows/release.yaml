@@ -165,18 +165,32 @@ jobs:
           echo "Stable release ${{ steps.release.outputs.stable_tag }} already exists for this commit"
 
       - name: Trigger Home Assistant app build
-        if: steps.release.outputs.mode == 'stable'
+        if: steps.release.outputs.mode != 'skip'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.APP_PULSE2MQTT_TOKEN }}
-          VERSION: ${{ steps.release.outputs.version }}
+          MODE: ${{ steps.release.outputs.mode }}
+          STABLE_VERSION: ${{ steps.release.outputs.version }}
+          EDGE_VERSION: ${{ steps.release.outputs.build_version }}
+          STABLE_TAG: ${{ steps.release.outputs.stable_tag }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+
+          if [[ "${MODE}" == "edge" ]]; then
+            version="${EDGE_VERSION}"
+            tag="edge"
+            channel="edge"
+          else
+            version="${STABLE_VERSION}"
+            tag="${STABLE_TAG}"
+            channel="latest"
+          fi
+
           jq -n \
-            --arg version "${VERSION}" \
-            --arg tag "v${VERSION}" \
+            --arg version "${version}" \
+            --arg tag "${tag}" \
+            --arg channel "${channel}" \
             --arg sha "${SHA}" \
-            --arg image "ghcr.io/snislab/pulse2mqtt:${VERSION}" \
-            '{event_type: "release-built", client_payload: {repository: "pulse2mqtt", version: $version, tag: $tag, sha: $sha, image: $image}}' \
+            '{event_type: "release-built", client_payload: {repository: "pulse2mqtt", version: $version, tag: $tag, channel: $channel, sha: $sha}}' \
             | gh api --method POST repos/SnisLab/app-pulse2mqtt/dispatches --input -

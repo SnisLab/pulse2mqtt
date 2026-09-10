@@ -31,9 +31,9 @@ Home Assistant packaging is maintained separately in
 [SnisLab/app-pulse2mqtt](https://github.com/SnisLab/app-pulse2mqtt) and is
 distributed through
 [SnisLab/home-assistant-apps](https://github.com/SnisLab/home-assistant-apps).
-Application releases automatically notify the packaging repository after the
-binary, GitHub release and container image have been published successfully.
-The release workflow sends a `release-built` dispatch to
+Stable and edge releases automatically notify the packaging repository after
+the binaries and GitHub release have been published successfully. The release
+workflow sends a `release-built` dispatch to
 `SnisLab/app-pulse2mqtt`; configure the `APP_PULSE2MQTT_TOKEN` Actions secret
 with a token that can write repository dispatches in that repository.
 
