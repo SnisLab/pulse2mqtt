@@ -108,6 +108,27 @@ func TestBuildDiscoveryConfig(t *testing.T) {
 	}
 }
 
+func TestDiscoverySettingsUseSafeDefaults(t *testing.T) {
+	original := settings.Load
+	t.Cleanup(func() { settings.Load = original })
+
+	settings.Load.Service.Pulse.Node = 4
+	settings.Load.Service.HomeAssistant.DiscoveryPrefix = "///"
+	settings.Load.Service.HomeAssistant.DeviceID = "pulse node/4"
+	settings.Load.Service.HomeAssistant.DeviceName = ""
+
+	prefix, deviceID, deviceName := discoverySettings()
+	if prefix != "homeassistant" {
+		t.Fatalf("unexpected default discovery prefix: %q", prefix)
+	}
+	if deviceID != "pulse_node_4" {
+		t.Fatalf("unexpected sanitized device ID: %q", deviceID)
+	}
+	if deviceName != "Tibber Pulse" {
+		t.Fatalf("unexpected default device name: %q", deviceName)
+	}
+}
+
 func TestCurrentMetricsMessageUsesBatteryProfile(t *testing.T) {
 	originalSettings := settings.Load
 	originalMetrics := metrics.MResult
@@ -145,6 +166,29 @@ func TestCurrentMetricsMessageUsesBatteryProfile(t *testing.T) {
 	message = currentMetricsMessage()
 	if message.NodeBatteryLevel == nil || *message.NodeBatteryLevel != 0 {
 		t.Errorf("regulated cells must report 0 below the threshold, got %v", message.NodeBatteryLevel)
+	}
+}
+
+func TestCurrentMetricsMessageOmitsUnknownBatteryLevel(t *testing.T) {
+	originalSettings := settings.Load
+	originalMetrics := metrics.MResult
+	t.Cleanup(func() {
+		settings.Load = originalSettings
+		metrics.MResult = originalMetrics
+	})
+
+	settings.Load.Service.Pulse.BatteryProfile = ""
+	payload, err := json.Marshal(currentMetricsMessage())
+	if err != nil {
+		t.Fatalf("could not marshal metrics message: %v", err)
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		t.Fatalf("could not unmarshal metrics message: %v", err)
+	}
+	if _, ok := fields["NodeBatteryLevel"]; ok {
+		t.Fatal("unknown battery profile must omit NodeBatteryLevel")
 	}
 }
 
