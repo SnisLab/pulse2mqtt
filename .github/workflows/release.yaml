@@ -74,10 +74,12 @@ jobs:
           release_version="${version}.${GITHUB_RUN_NUMBER}"
           release_tag="v${release_version}"
 
-          echo "version=${release_version}" >> "${GITHUB_OUTPUT}"
-          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
-          echo "base_tag=v${version}" >> "${GITHUB_OUTPUT}"
-          echo "mode=release" >> "${GITHUB_OUTPUT}"
+          {
+            echo "version=${release_version}"
+            echo "release_tag=${release_tag}"
+            echo "base_tag=v${version}"
+            echo "mode=release"
+          } >> "${GITHUB_OUTPUT}"
           echo "Release version: ${release_version}"
 
       - name: Create release tag
