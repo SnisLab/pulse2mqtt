@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">Pulse2MQTT</title>
-  <desc id="desc">A cyan electrical pulse inside a dark rounded square.</desc>
-  <rect width="512" height="512" rx="112" fill="#102A43"/>
-  <circle cx="256" cy="256" r="154" fill="none" stroke="#1D4E89" stroke-width="18"/>
-  <path d="M92 276h74l30-76 48 132 44-104 26 48h106" fill="none" stroke="#56D6E8" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="92" cy="276" r="13" fill="#F5A623"/>
-  <circle cx="420" cy="276" r="13" fill="#F5A623"/>
-</svg>
