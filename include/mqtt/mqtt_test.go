@@ -24,11 +24,12 @@ func (mockToken) Done() <-chan struct{} {
 func (mockToken) Error() error { return nil }
 
 type mockPublisher struct {
-	connected bool
-	topic     string
-	qos       byte
-	retained  bool
-	payload   interface{}
+	connected    bool
+	disconnected bool
+	topic        string
+	qos          byte
+	retained     bool
+	payload      interface{}
 }
 
 func (client *mockPublisher) IsConnected() bool { return client.connected }
@@ -39,6 +40,7 @@ func (client *mockPublisher) Publish(topic string, qos byte, retained bool, payl
 	client.payload = payload
 	return mockToken{}
 }
+func (client *mockPublisher) Disconnect(uint) { client.disconnected = true }
 
 func TestBuildDiscoveryConfig(t *testing.T) {
 	original := settings.Load
@@ -222,5 +224,40 @@ func TestSendDoesNothingWhenDisconnected(t *testing.T) {
 
 	if dataClient.topic != "" || metricsClient.topic != "" {
 		t.Fatal("disconnected clients must not receive messages")
+	}
+}
+
+func TestStopPublishesOfflineBeforeDisconnect(t *testing.T) {
+	originalSettings := settings.Load
+	t.Cleanup(func() { settings.Load = originalSettings })
+
+	settings.Load.Service.HomeAssistant.Discovery = true
+	settings.Load.Service.Pulse.Node = 1
+	client := &mockPublisher{connected: true}
+
+	Stop(client)
+
+	if client.topic != "pulse2mqtt/pulse2mqtt_1/status" {
+		t.Fatalf("unexpected availability topic: %q", client.topic)
+	}
+	if client.payload != "offline" || !client.retained {
+		t.Fatalf("unexpected offline message: payload=%v retained=%t", client.payload, client.retained)
+	}
+	if !client.disconnected {
+		t.Fatal("client was not disconnected")
+	}
+}
+
+func TestStopDisconnectsWithoutPublishingWhenDiscoveryDisabled(t *testing.T) {
+	originalSettings := settings.Load
+	t.Cleanup(func() { settings.Load = originalSettings })
+
+	settings.Load.Service.HomeAssistant.Discovery = false
+	client := &mockPublisher{connected: true}
+
+	Stop(client)
+
+	if client.topic != "" || !client.disconnected {
+		t.Fatalf("unexpected stop behavior: topic=%q disconnected=%t", client.topic, client.disconnected)
 	}
 }

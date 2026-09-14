@@ -237,7 +237,7 @@ func buildDiscoveryConfig() ([]byte, error) {
 	return json.Marshal(config)
 }
 
-func sendDiscovery(client paho.Client) {
+func sendDiscovery(client mqttPublisher) {
 	payload, err := buildDiscoveryConfig()
 	if err != nil {
 		log.Error("Can not create Home Assistant discovery message:", err)
@@ -249,7 +249,7 @@ func sendDiscovery(client paho.Client) {
 	}
 }
 
-func publishAvailability(client paho.Client, status string) {
+func publishAvailability(client mqttPublisher, status string) {
 	if token := client.Publish(availabilityTopic(), 1, true, status); token.Wait() && token.Error() != nil {
 		log.Error("Can not publish Home Assistant availability:", token.Error())
 	}
@@ -419,7 +419,15 @@ func Start() paho.Client {
 }
 
 // Stop disconnects the MQTT client from the broker.
-func Stop(client paho.Client) {
+type mqttConnection interface {
+	mqttPublisher
+	Disconnect(quiesce uint)
+}
+
+func Stop(client mqttConnection) {
+	if client == nil {
+		return
+	}
 	log.Warn("Disconnect MQTT")
 	if client.IsConnected() && settings.Load.Service.HomeAssistant.Discovery {
 		publishAvailability(client, "offline")
