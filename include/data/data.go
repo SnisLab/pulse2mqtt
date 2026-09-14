@@ -42,6 +42,9 @@ func PrintMessage(msg sml.Message) {
 
 // Octet2Obis converts an octet string to an OBIS code.
 func Octet2Obis(o sml.OctetString) string {
+	if len(o) < 6 {
+		return ""
+	}
 	return fmt.Sprintf("%d-%d:%d.%d.%d*%d", o[0], o[1], o[2], o[3], o[4], o[5])
 
 }
@@ -54,6 +57,9 @@ func ListEntry2Float(entry sml.ListEntry) float64 {
 // PrintListEntry prints a list entry.
 func PrintListEntry(entry sml.ListEntry) {
 	obis := Octet2Obis(entry.ObjName)
+	if obis == "" {
+		return
+	}
 	//fmt.Printf("%-22s", obis)
 
 	if ((entry.Value.Typ & sml.TYPEFIELD) == sml.TYPEINTEGER) || ((entry.Value.Typ & sml.TYPEFIELD) == sml.TYPEUNSIGNED) {
@@ -128,14 +134,14 @@ func GetData() {
 	} else {
 		// parse without escape sequence/ begin/end marker
 		messages, err := sml.FileParse(body[8 : len(body)-8])
+		if err != nil {
+			log.Error("Parse error:", err)
+			return
+		}
 		for _, msg := range messages {
 			if msg.MessageBody.Tag == sml.MESSAGEGETLISTRESPONSE {
 				PrintMessage(msg)
 			}
-		}
-
-		if err != nil {
-			log.Error("Parse error:", err)
 		}
 
 		log.Debug("Stromverbrauch:", DResult.NodeValue.Total.Consume)

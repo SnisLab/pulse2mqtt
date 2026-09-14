@@ -13,6 +13,12 @@ func TestOctet2Obis(t *testing.T) {
 	}
 }
 
+func TestOctet2ObisRejectsShortInput(t *testing.T) {
+	if got := Octet2Obis(sml.OctetString{1, 0, 1}); got != "" {
+		t.Fatalf("short OBIS input returned %q", got)
+	}
+}
+
 func TestListEntry2Float(t *testing.T) {
 	tests := []struct {
 		name   string
