@@ -280,7 +280,7 @@ var connectLostHandler paho.ConnectionLostHandler = func(client paho.Client, err
 }
 
 // connect establishes a connection to the MQTT broker.
-func connect() (client paho.Client, err error) {
+func clientOptions() *paho.ClientOptions {
 	opts := paho.NewClientOptions().AddBroker("mqtt://" + settings.Load.Service.Mqtt.Host + ":" + strconv.Itoa(settings.Load.Service.Mqtt.Port))
 	clientID := vars.Mqtt_cID
 	if settings.Load.Service.HomeAssistant.Discovery {
@@ -301,7 +301,11 @@ func connect() (client paho.Client, err error) {
 	if settings.Load.Service.HomeAssistant.Discovery {
 		opts.SetWill(availabilityTopic(), "offline", 1, true)
 	}
+	return opts
+}
 
+func connect() (client paho.Client, err error) {
+	opts := clientOptions()
 	client = paho.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		err = token.Error()

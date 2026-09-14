@@ -10,6 +10,7 @@ import (
 	"pulse2mqtt/include/data"
 	"pulse2mqtt/include/metrics"
 	"pulse2mqtt/include/settings"
+	"pulse2mqtt/include/vars"
 )
 
 type mockToken struct{}
@@ -259,5 +260,36 @@ func TestStopDisconnectsWithoutPublishingWhenDiscoveryDisabled(t *testing.T) {
 
 	if client.topic != "" || !client.disconnected {
 		t.Fatalf("unexpected stop behavior: topic=%q disconnected=%t", client.topic, client.disconnected)
+	}
+}
+
+func TestClientOptions(t *testing.T) {
+	originalSettings := settings.Load
+	originalClientID := vars.Mqtt_cID
+	t.Cleanup(func() {
+		settings.Load = originalSettings
+		vars.Mqtt_cID = originalClientID
+	})
+
+	settings.Load.Service.Mqtt.Host = "mqtt.example"
+	settings.Load.Service.Mqtt.Port = 1884
+	settings.Load.Service.Mqtt.User = "mqtt-user"
+	settings.Load.Service.Mqtt.Pass = "mqtt-pass"
+	settings.Load.Service.HomeAssistant.Discovery = true
+	settings.Load.Service.Pulse.Node = 3
+	vars.Mqtt_cID = "test-client"
+
+	opts := clientOptions()
+	if len(opts.Servers) != 1 || opts.Servers[0].String() != "mqtt://mqtt.example:1884" {
+		t.Fatalf("unexpected broker: %+v", opts.Servers)
+	}
+	if opts.ClientID != "pulse2mqtt-pulse2mqtt_3" || opts.Username != "mqtt-user" || opts.Password != "mqtt-pass" {
+		t.Fatalf("unexpected client credentials: id=%q user=%q", opts.ClientID, opts.Username)
+	}
+	if !opts.AutoReconnect || opts.KeepAlive != 30 || !opts.WillEnabled {
+		t.Fatalf("unexpected connection options: reconnect=%t keepalive=%d will=%t", opts.AutoReconnect, opts.KeepAlive, opts.WillEnabled)
+	}
+	if opts.WillTopic != "pulse2mqtt/pulse2mqtt_3/status" || string(opts.WillPayload) != "offline" || !opts.WillRetained {
+		t.Fatalf("unexpected last will: topic=%q payload=%q retained=%t", opts.WillTopic, opts.WillPayload, opts.WillRetained)
 	}
 }
