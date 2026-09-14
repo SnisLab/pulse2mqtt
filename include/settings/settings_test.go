@@ -44,3 +44,39 @@ service:
 		t.Fatalf("unexpected Home Assistant settings: %+v", config.Service.HomeAssistant)
 	}
 }
+
+func TestConfigValidate(t *testing.T) {
+	valid := Config{}
+	valid.Service.Mqtt.Host = "mqtt.example"
+	valid.Service.Mqtt.Port = 1883
+	valid.Service.Mqtt.Topics.Data = "pulse/data"
+	valid.Service.Mqtt.Topics.Metrics = "pulse/metrics"
+	valid.Service.Pulse.IP = "pulse.example"
+	valid.Service.Pulse.Node = 1
+
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("valid config rejected: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		setup func(*Config)
+	}{
+		{name: "missing MQTT host", setup: func(config *Config) { config.Service.Mqtt.Host = "" }},
+		{name: "invalid MQTT port", setup: func(config *Config) { config.Service.Mqtt.Port = 70000 }},
+		{name: "missing data topic", setup: func(config *Config) { config.Service.Mqtt.Topics.Data = "" }},
+		{name: "missing metrics topic", setup: func(config *Config) { config.Service.Mqtt.Topics.Metrics = "" }},
+		{name: "missing Pulse address", setup: func(config *Config) { config.Service.Pulse.IP = "" }},
+		{name: "invalid Pulse node", setup: func(config *Config) { config.Service.Pulse.Node = 0 }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := valid
+			tt.setup(&config)
+			if err := config.Validate(); err == nil {
+				t.Fatal("invalid config was accepted")
+			}
+		})
+	}
+}

@@ -60,6 +60,13 @@ func main() {
 		log.SetDebugLevel(1)
 	}
 
+	if settings.LoadError != nil {
+		log.Fatal("Can not load configuration:", settings.LoadError)
+	}
+	if err := settings.Load.Validate(); err != nil {
+		log.Fatal("Invalid configuration:", err)
+	}
+
 	settings.LogConfig(settings.Load)
 
 	log.Info("MQTT:")

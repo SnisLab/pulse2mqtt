@@ -1,9 +1,11 @@
 package settings
 
 import (
-	log "github.com/DjSni/go-log"
+	"fmt"
 	"os"
+	"strings"
 
+	log "github.com/DjSni/go-log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -57,42 +59,58 @@ func LogConfig(config Config) {
 	log.Debug(" Device ID:	", config.Service.HomeAssistant.DeviceID)
 }
 
-func readConfig() Config {
-	var config Config
-
-	if _, err := os.Stat(CONFIG_PATH_DEB); err == nil {
-		// Open YAML file
-		file, err := os.Open(CONFIG_PATH_DEB)
-		if err != nil {
-			log.Error(err.Error())
-		}
-		defer file.Close()
-
-		// Decode YAML file to struct
-		if file != nil {
-			decoder := yaml.NewDecoder(file)
-			if err := decoder.Decode(&config); err != nil {
-				log.Error(err.Error())
-			}
-		}
-	} else if _, err := os.Stat(CONFIG_PATH); err == nil {
-		// Open YAML file
-		file, err := os.Open(CONFIG_PATH)
-		if err != nil {
-			log.Error(err.Error())
-		}
-		defer file.Close()
-
-		// Decode YAML file to struct
-		if file != nil {
-			decoder := yaml.NewDecoder(file)
-			if err := decoder.Decode(&config); err != nil {
-				log.Error(err.Error())
-			}
-		}
+// Validate checks the settings required to start the application.
+func (config Config) Validate() error {
+	if strings.TrimSpace(config.Service.Mqtt.Host) == "" {
+		return fmt.Errorf("MQTT host is required")
 	}
-
-	return config
+	if config.Service.Mqtt.Port < 1 || config.Service.Mqtt.Port > 65535 {
+		return fmt.Errorf("MQTT port must be between 1 and 65535")
+	}
+	if strings.TrimSpace(config.Service.Mqtt.Topics.Data) == "" {
+		return fmt.Errorf("MQTT data topic is required")
+	}
+	if strings.TrimSpace(config.Service.Mqtt.Topics.Metrics) == "" {
+		return fmt.Errorf("MQTT metrics topic is required")
+	}
+	if strings.TrimSpace(config.Service.Pulse.IP) == "" {
+		return fmt.Errorf("Pulse IP or hostname is required")
+	}
+	if config.Service.Pulse.Node < 1 {
+		return fmt.Errorf("Pulse node must be greater than 0")
+	}
+	return nil
 }
 
-var Load Config = readConfig()
+func readConfig() (Config, error) {
+	var config Config
+	path := ""
+
+	if _, err := os.Stat(CONFIG_PATH_DEB); err == nil {
+		path = CONFIG_PATH_DEB
+	} else if _, err := os.Stat(CONFIG_PATH); err == nil {
+		path = CONFIG_PATH
+	} else {
+		return config, fmt.Errorf("configuration file not found (checked %s and %s)", CONFIG_PATH_DEB, CONFIG_PATH)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return config, fmt.Errorf("open configuration file %s: %w", path, err)
+	}
+	defer file.Close()
+
+	if err := yaml.NewDecoder(file).Decode(&config); err != nil {
+		return config, fmt.Errorf("decode configuration file %s: %w", path, err)
+	}
+	return config, nil
+}
+
+var (
+	Load      Config
+	LoadError error
+)
+
+func init() {
+	Load, LoadError = readConfig()
+}
