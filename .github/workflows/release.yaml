@@ -100,18 +100,32 @@ jobs:
 
           previous_tag="$(git tag --list 'v*' --sort=-version:refname | sed -n '1p')"
           if [[ -n "${previous_tag}" ]]; then
-            changes="$(git log --no-merges --format='- %s (%h)' "${previous_tag}..${ORIGINAL_SHA}")"
+            range="${previous_tag}..${ORIGINAL_SHA}"
           else
-            changes="$(git log --no-merges --format='- %s (%h)' "${ORIGINAL_SHA}")"
-          fi
-
-          if [[ -z "${changes}" ]]; then
-            changes="- Maintenance release."
+            range="${ORIGINAL_SHA}"
           fi
 
           {
+            added="$(git log --no-merges "${range}" --format='- %s (%h)' --grep='^feat' --regexp-ignore-case)"
+            fixed="$(git log --no-merges "${range}" --format='- %s (%h)' --grep='^fix' --regexp-ignore-case)"
+            changed="$(git log --no-merges "${range}" --format='- %s (%h)' --grep='^\(refactor\|perf\)' --regexp-ignore-case)"
+            if [[ -n "${added}" ]]; then
+              printf '### Added\n\n%s\n\n' "${added}"
+            fi
+            if [[ -n "${fixed}" ]]; then
+              printf '### Fixed\n\n%s\n\n' "${fixed}"
+            fi
+            if [[ -n "${changed}" ]]; then
+              printf '### Changed\n\n%s\n\n' "${changed}"
+            fi
+            if [[ -z "${added}${fixed}${changed}" ]]; then
+              printf '%s\n\n' '- Maintenance release.'
+            fi
+          } > "${RUNNER_TEMP}/changelog-entry.md"
+
+          {
             printf '## %s\n\n' "${VERSION}"
-            printf '%s\n\n' "${changes}"
+            cat "${RUNNER_TEMP}/changelog-entry.md"
             cat CHANGELOG.md
           } > "${RUNNER_TEMP}/CHANGELOG.md"
           mv "${RUNNER_TEMP}/CHANGELOG.md" CHANGELOG.md
@@ -171,11 +185,25 @@ jobs:
           RELEASE_SHA: ${{ steps.changelog.outputs.release_sha }}
         run: |
           set -euo pipefail
+          notes="${RUNNER_TEMP}/release-notes.md"
+          awk -v version="${VERSION}" '
+            $0 == "## " version { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "${notes}"
+          if [[ ! -s "${notes}" ]]; then
+            printf '%s\n' '- Maintenance release.' > "${notes}"
+          fi
+
           if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             gh release create "${RELEASE_TAG}" \
               --target "${RELEASE_SHA}" \
               --title "Release ${VERSION}" \
-              --generate-notes
+              --notes-file "${notes}"
+          else
+            gh release edit "${RELEASE_TAG}" \
+              --title "Release ${VERSION}" \
+              --notes-file "${notes}"
           fi
           gh release upload "${RELEASE_TAG}" \
             dist/*.apk \
