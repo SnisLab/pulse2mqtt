@@ -53,6 +53,8 @@ func TestConfigValidate(t *testing.T) {
 	valid.Service.Mqtt.Port = 1883
 	valid.Service.Mqtt.Topics.Data = "pulse/data"
 	valid.Service.Mqtt.Topics.Metrics = "pulse/metrics"
+	valid.Service.Pulse.User = "pulse-user"
+	valid.Service.Pulse.Password = "pulse-password"
 	valid.Service.Pulse.IP = "pulse.example"
 	valid.Service.Pulse.Node = 1
 
@@ -69,6 +71,8 @@ func TestConfigValidate(t *testing.T) {
 		{name: "missing data topic", setup: func(config *Config) { config.Service.Mqtt.Topics.Data = "" }},
 		{name: "missing metrics topic", setup: func(config *Config) { config.Service.Mqtt.Topics.Metrics = "" }},
 		{name: "missing Pulse address", setup: func(config *Config) { config.Service.Pulse.IP = "" }},
+		{name: "missing Pulse user", setup: func(config *Config) { config.Service.Pulse.User = "" }},
+		{name: "missing Pulse password", setup: func(config *Config) { config.Service.Pulse.Password = "" }},
 		{name: "invalid Pulse node", setup: func(config *Config) { config.Service.Pulse.Node = 0 }},
 		{name: "unsupported battery profile", setup: func(config *Config) { config.Service.Pulse.BatteryProfile = "lithium" }},
 	}

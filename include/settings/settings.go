@@ -77,6 +77,12 @@ func (config Config) Validate() error {
 	if strings.TrimSpace(config.Service.Pulse.IP) == "" {
 		return fmt.Errorf("Pulse IP or hostname is required")
 	}
+	if strings.TrimSpace(config.Service.Pulse.User) == "" {
+		return fmt.Errorf("Pulse user is required")
+	}
+	if strings.TrimSpace(config.Service.Pulse.Password) == "" {
+		return fmt.Errorf("Pulse password is required")
+	}
 	if config.Service.Pulse.Node < 1 {
 		return fmt.Errorf("Pulse node must be greater than 0")
 	}

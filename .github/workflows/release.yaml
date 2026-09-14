@@ -30,6 +30,8 @@ jobs:
         run: go test ./...
       - name: Race test
         run: go test -race ./...
+      - name: Lint GitHub Actions
+        uses: docker://rhysd/actionlint:1.7.7
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -133,6 +135,25 @@ jobs:
             dist/*.tar.gz \
             dist/checksums.txt \
             --clobber
+
+      - name: Verify published release
+        if: steps.release.outputs.mode == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          test "$(gh release view "${RELEASE_TAG}" --json tagName --jq '.tagName')" = "${RELEASE_TAG}"
+          assets="$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name')"
+          for asset in \
+            pulse2mqtt_linux_amd64.tar.gz \
+            pulse2mqtt_linux_arm64.tar.gz \
+            pulse2mqtt_linux_amd64.apk \
+            pulse2mqtt_linux_arm64.apk \
+            checksums.txt; do
+            grep -Fx "${asset}" <<<"${assets}"
+          done
 
       - name: Trigger Home Assistant app build
         if: steps.release.outputs.mode == 'release'
