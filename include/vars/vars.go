@@ -6,9 +6,8 @@ import (
 )
 
 type Options struct {
-	MQTTClientID string
-	Verbose      bool
-	Help         bool
+	Verbose bool
+	Help    bool
 }
 
 func MQTTClientID() string {
@@ -16,7 +15,7 @@ func MQTTClientID() string {
 }
 
 func Vars() Options {
-	options := Options{MQTTClientID: MQTTClientID()}
+	var options Options
 	flag.BoolVar(&options.Verbose, "v", false, "Run logging in Verbose Mode")
 	//flag.BoolVar(&daemon, "d", false, "Daemon - Set it to daemon mode")
 	//flag.BoolVar(&dryRun, "t", false, "DryRun - change nothing")
