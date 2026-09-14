@@ -40,8 +40,6 @@ type Metrics struct {
 	} `json:"hub_attachments"`
 }
 
-var MResult Metrics
-
 func batteryVoltageRange(profile string) (emptyVoltage float64, fullVoltage float64, ok bool) {
 	switch profile {
 	case "alkaline":
@@ -87,12 +85,13 @@ func PrettyPrint(i interface{}) string {
 }
 
 // GetMetrics retrieves the metrics from the specified URL and parses the response.
-func GetMetrics() {
+func GetMetrics() Metrics {
+	var result Metrics
 	buildURL := "http://" + settings.Load.Service.Pulse.IP + "/metrics.json?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
 	req, err := http.NewRequest(http.MethodGet, buildURL, nil)
 	if err != nil {
 		log.Error("Can not create metrics request:", err)
-		return
+		return result
 	}
 	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
 
@@ -100,30 +99,31 @@ func GetMetrics() {
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error("No response from request:", err)
-		return
+		return result
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		log.Error("Metrics request returned:", resp.Status)
-		return
+		return result
 	}
 	// response body is []byte
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error("Can not read metrics response:", err)
-		return
+		return result
 	}
 
 	// Parse []byte to go struct pointer
-	if err := json.Unmarshal(body, &MResult); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
 		log.Error("Can not unmarshal metrics JSON:", err)
-		return
+		return result
 	}
 
-	log.Debug("NodeBatteryVoltage:", MResult.NodeStatus.NodeBatteryVoltage)
-	log.Debug("NodeTemperature:", MResult.NodeStatus.NodeTemperature)
-	log.Debug("NodeAvgRssi:", MResult.NodeStatus.NodeAvgRssi)
-	log.Debug("MeterMsgCountSent:", MResult.NodeStatus.MeterMsgCountSent)
-	log.Debug("MeterPkgCountSent:", MResult.NodeStatus.MeterPkgCountSent)
-	log.Debug("NodeVersion:", MResult.HubAttachments.NodeVersion)
+	log.Debug("NodeBatteryVoltage:", result.NodeStatus.NodeBatteryVoltage)
+	log.Debug("NodeTemperature:", result.NodeStatus.NodeTemperature)
+	log.Debug("NodeAvgRssi:", result.NodeStatus.NodeAvgRssi)
+	log.Debug("MeterMsgCountSent:", result.NodeStatus.MeterMsgCountSent)
+	log.Debug("MeterPkgCountSent:", result.NodeStatus.MeterPkgCountSent)
+	log.Debug("NodeVersion:", result.HubAttachments.NodeVersion)
+	return result
 }

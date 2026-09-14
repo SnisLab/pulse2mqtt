@@ -344,9 +344,9 @@ type metricsMessage struct {
 	Time               string `json:"Time"`
 }
 
-func currentMetricsMessage() metricsMessage {
+func currentMetricsMessage(result metrics.Metrics) metricsMessage {
 	batteryLevel, hasBatteryLevel := metrics.EstimateBatteryLevel(
-		metrics.MResult.NodeStatus.NodeBatteryVoltage,
+		result.NodeStatus.NodeBatteryVoltage,
 		settings.Load.Service.Pulse.BatteryProfile,
 	)
 	var batteryLevelValue *int
@@ -355,32 +355,32 @@ func currentMetricsMessage() metricsMessage {
 	}
 
 	return metricsMessage{
-		NodeBatteryVoltage: fmt.Sprintf("%f", metrics.MResult.NodeStatus.NodeBatteryVoltage),
+		NodeBatteryVoltage: fmt.Sprintf("%f", result.NodeStatus.NodeBatteryVoltage),
 		NodeBatteryLevel:   batteryLevelValue,
-		NodeTemperature:    fmt.Sprintf("%f", metrics.MResult.NodeStatus.NodeTemperature),
-		NodeAvgRssi:        fmt.Sprintf("%f", metrics.MResult.NodeStatus.NodeAvgRssi),
-		MeterMsgCountSent:  strconv.Itoa(metrics.MResult.NodeStatus.MeterMsgCountSent),
-		MeterPkgCountSent:  strconv.Itoa(metrics.MResult.NodeStatus.MeterPkgCountSent),
-		NodeVersion:        metrics.MResult.HubAttachments.NodeVersion,
+		NodeTemperature:    fmt.Sprintf("%f", result.NodeStatus.NodeTemperature),
+		NodeAvgRssi:        fmt.Sprintf("%f", result.NodeStatus.NodeAvgRssi),
+		MeterMsgCountSent:  strconv.Itoa(result.NodeStatus.MeterMsgCountSent),
+		MeterPkgCountSent:  strconv.Itoa(result.NodeStatus.MeterPkgCountSent),
+		NodeVersion:        result.HubAttachments.NodeVersion,
 		Time:               time.Now().Format(time.RFC3339),
 	}
 }
 
 // SendData sends the current data to the MQTT broker.
-func SendData(client paho.Client) {
-	sendData(client)
+func SendData(client paho.Client, result data.Data) {
+	sendData(client, result)
 }
 
-func sendData(client mqttPublisher) {
+func sendData(client mqttPublisher, result data.Data) {
 	if !client.IsConnected() {
 		log.Debug("MQTT reconnecting")
 		return
 	}
 
 	payload, err := json.Marshal(Message{
-		Stromverbrauch:     data.DResult.NodeValue.Total.Consume,
-		Stromeinspeißung:   data.DResult.NodeValue.Total.Feed,
-		Aktuellerverbrauch: data.DResult.NodeValue.Current.Consume,
+		Stromverbrauch:     result.NodeValue.Total.Consume,
+		Stromeinspeißung:   result.NodeValue.Total.Feed,
+		Aktuellerverbrauch: result.NodeValue.Current.Consume,
 		Time:               time.Now().Format(time.RFC3339),
 	})
 	if err != nil {
@@ -393,17 +393,17 @@ func sendData(client mqttPublisher) {
 }
 
 // SendMetrics sends the current metrics to the MQTT broker.
-func SendMetrics(client paho.Client) {
-	sendMetrics(client)
+func SendMetrics(client paho.Client, result metrics.Metrics) {
+	sendMetrics(client, result)
 }
 
-func sendMetrics(client mqttPublisher) {
+func sendMetrics(client mqttPublisher, result metrics.Metrics) {
 	if !client.IsConnected() {
 		log.Debug("MQTT reconnecting")
 		return
 	}
 
-	payload, err := json.Marshal(currentMetricsMessage())
+	payload, err := json.Marshal(currentMetricsMessage(result))
 	if err != nil {
 		log.Error("Can not create MQTT metrics message:", err)
 		return

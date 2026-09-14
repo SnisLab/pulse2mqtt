@@ -26,17 +26,15 @@ type Data struct {
 	}
 }
 
-var DResult Data
-
 // PrintMessage prints the SML message.
-func PrintMessage(msg sml.Message) {
+func PrintMessage(msg sml.Message, result *Data) {
 	list, ok := msg.MessageBody.Data.(sml.GetListResponse)
 	if !ok {
 		panic("Could not cast list reponse")
 	}
 
 	for _, elem := range list.ValList {
-		PrintListEntry(elem)
+		PrintListEntry(elem, result)
 	}
 }
 
@@ -55,9 +53,9 @@ func ListEntry2Float(entry sml.ListEntry) float64 {
 }
 
 // PrintListEntry prints a list entry.
-func PrintListEntry(entry sml.ListEntry) {
+func PrintListEntry(entry sml.ListEntry, result *Data) {
 	obis := Octet2Obis(entry.ObjName)
-	if obis == "" {
+	if obis == "" || result == nil {
 		return
 	}
 	//fmt.Printf("%-22s", obis)
@@ -78,28 +76,29 @@ func PrintListEntry(entry sml.ListEntry) {
 			// TotalConsume
 			value = value / 1000
 			s := fmt.Sprintf("%.4f", value)
-			DResult.NodeValue.Total.Consume = s + " " + unit
+			result.NodeValue.Total.Consume = s + " " + unit
 		case "1-0:2.8.0*255":
 			// TotalFeed
 			value = value / 1000
 			s := fmt.Sprintf("%.4f", value)
-			DResult.NodeValue.Total.Feed = s + " " + unit
+			result.NodeValue.Total.Feed = s + " " + unit
 		case "1-0:16.7.0*255":
 			// CurrentConsume
 			value = value / 10
 			s := fmt.Sprintf("%.f", value)
-			DResult.NodeValue.Current.Consume = s + " " + unit
+			result.NodeValue.Current.Consume = s + " " + unit
 		}
 	}
 }
 
 // GetData retrieves the data from the specified URL and parses the response.
-func GetData() {
+func GetData() Data {
+	var result Data
 	buildURL := "http://" + settings.Load.Service.Pulse.IP + "/data.json?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
 	req, err := http.NewRequest(http.MethodGet, buildURL, nil)
 	if err != nil {
 		log.Error("Can not create data request:", err)
-		return
+		return result
 	}
 	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
 
@@ -107,18 +106,18 @@ func GetData() {
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error("No response from request:", err)
-		return
+		return result
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		log.Error("Data request returned:", resp.Status)
-		return
+		return result
 	}
 	// response body is []byte
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error("Get no body -> ", err)
-		return
+		return result
 	}
 
 	if body == nil {
@@ -136,16 +135,17 @@ func GetData() {
 		messages, err := sml.FileParse(body[8 : len(body)-8])
 		if err != nil {
 			log.Error("Parse error:", err)
-			return
+			return result
 		}
 		for _, msg := range messages {
 			if msg.MessageBody.Tag == sml.MESSAGEGETLISTRESPONSE {
-				PrintMessage(msg)
+				PrintMessage(msg, &result)
 			}
 		}
 
-		log.Debug("Stromverbrauch:", DResult.NodeValue.Total.Consume)
-		log.Debug("Stromeinspeißung:", DResult.NodeValue.Total.Feed)
-		log.Debug("Aktueller verbrauch:", DResult.NodeValue.Current.Consume)
+		log.Debug("Stromverbrauch:", result.NodeValue.Total.Consume)
+		log.Debug("Stromeinspeißung:", result.NodeValue.Total.Feed)
+		log.Debug("Aktueller verbrauch:", result.NodeValue.Current.Consume)
 	}
+	return result
 }

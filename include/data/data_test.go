@@ -46,27 +46,24 @@ func TestListEntry2Float(t *testing.T) {
 }
 
 func TestPrintListEntryUpdatesKnownValues(t *testing.T) {
-	original := DResult
-	t.Cleanup(func() { DResult = original })
+	var result Data
 
 	PrintListEntry(sml.ListEntry{
 		ObjName: sml.OctetString{1, 0, 1, 8, 0, 255},
 		Unit:    0x1E,
 		Scaler:  -3,
 		Value:   sml.Value{Typ: sml.TYPEINTEGER, DataInt: 1234},
-	})
+	}, &result)
 
-	if got, want := DResult.NodeValue.Total.Consume, "0.0012 kWh"; got != want {
+	if got, want := result.NodeValue.Total.Consume, "0.0012 kWh"; got != want {
 		t.Fatalf("unexpected total consumption: got %q, want %q", got, want)
 	}
 }
 
 func TestGetDataUsesBasicAuthAndNodeID(t *testing.T) {
 	originalSettings := settings.Load
-	originalResult := DResult
 	t.Cleanup(func() {
 		settings.Load = originalSettings
-		DResult = originalResult
 	})
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +89,8 @@ func TestGetDataUsesBasicAuthAndNodeID(t *testing.T) {
 
 func TestGetDataIgnoresFailedResponse(t *testing.T) {
 	originalSettings := settings.Load
-	originalResult := DResult
 	t.Cleanup(func() {
 		settings.Load = originalSettings
-		DResult = originalResult
 	})
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,21 +99,16 @@ func TestGetDataIgnoresFailedResponse(t *testing.T) {
 	defer server.Close()
 
 	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
-	DResult.NodeValue.Total.Consume = "unchanged"
-
-	GetData()
-
-	if got := DResult.NodeValue.Total.Consume; got != "unchanged" {
-		t.Fatalf("failed response changed data result to %q", got)
+	result := GetData()
+	if got := result.NodeValue.Total.Consume; got != "" {
+		t.Fatalf("failed response returned data result %q", got)
 	}
 }
 
 func TestGetDataIgnoresInvalidSML(t *testing.T) {
 	originalSettings := settings.Load
-	originalResult := DResult
 	t.Cleanup(func() {
 		settings.Load = originalSettings
-		DResult = originalResult
 	})
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,11 +118,8 @@ func TestGetDataIgnoresInvalidSML(t *testing.T) {
 	defer server.Close()
 
 	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
-	DResult.NodeValue.Total.Consume = "unchanged"
-
-	GetData()
-
-	if got := DResult.NodeValue.Total.Consume; got != "unchanged" {
-		t.Fatalf("invalid SML changed data result to %q", got)
+	result := GetData()
+	if got := result.NodeValue.Total.Consume; got != "" {
+		t.Fatalf("invalid SML returned data result %q", got)
 	}
 }

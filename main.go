@@ -39,8 +39,7 @@ func doMetrics(ctx context.Context, MqttClient ex_mqtt.Client) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
-		metrics.GetMetrics()
-		mqtt.SendMetrics(MqttClient)
+		mqtt.SendMetrics(MqttClient, metrics.GetMetrics())
 		select {
 		case <-ctx.Done():
 			return
@@ -55,8 +54,7 @@ func doData(ctx context.Context, MqttClient ex_mqtt.Client) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
-		data.GetData()
-		mqtt.SendData(MqttClient)
+		mqtt.SendData(MqttClient, data.GetData())
 		select {
 		case <-ctx.Done():
 			return

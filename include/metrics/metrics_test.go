@@ -66,11 +66,7 @@ func TestEstimateBatteryLevel(t *testing.T) {
 
 func TestGetMetricsUsesBasicAuth(t *testing.T) {
 	originalSettings := settings.Load
-	originalResult := MResult
-	t.Cleanup(func() {
-		settings.Load = originalSettings
-		MResult = originalResult
-	})
+	t.Cleanup(func() { settings.Load = originalSettings })
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()
@@ -93,9 +89,9 @@ func TestGetMetricsUsesBasicAuth(t *testing.T) {
 	settings.Load.Service.Pulse.Password = "pulse-password"
 	settings.Load.Service.Pulse.Node = 7
 
-	GetMetrics()
+	result := GetMetrics()
 
-	if got, want := MResult.NodeStatus.NodeBatteryVoltage, 2.98779; got != want {
+	if got, want := result.NodeStatus.NodeBatteryVoltage, 2.98779; got != want {
 		t.Errorf("unexpected battery voltage: got %f, want %f", got, want)
 	}
 }

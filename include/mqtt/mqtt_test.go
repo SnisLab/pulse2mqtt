@@ -130,22 +130,19 @@ func TestDiscoverySettingsUseSafeDefaults(t *testing.T) {
 
 func TestCurrentMetricsMessageUsesBatteryProfile(t *testing.T) {
 	originalSettings := settings.Load
-	originalMetrics := metrics.MResult
-	t.Cleanup(func() {
-		settings.Load = originalSettings
-		metrics.MResult = originalMetrics
-	})
+	t.Cleanup(func() { settings.Load = originalSettings })
 
-	metrics.MResult.NodeStatus.NodeBatteryVoltage = 2.95
+	result := metrics.Metrics{}
+	result.NodeStatus.NodeBatteryVoltage = 2.95
 	settings.Load.Service.Pulse.BatteryProfile = "lfb_aa"
-	message := currentMetricsMessage()
+	message := currentMetricsMessage(result)
 	if message.NodeBatteryLevel == nil || *message.NodeBatteryLevel != 50 {
 		t.Errorf("unexpected LFB battery level: %v", message.NodeBatteryLevel)
 	}
 
 	settings.Load.Service.Pulse.BatteryProfile = "regulated_1_5v"
-	metrics.MResult.NodeStatus.NodeBatteryVoltage = 3.0
-	message = currentMetricsMessage()
+	result.NodeStatus.NodeBatteryVoltage = 3.0
+	message = currentMetricsMessage(result)
 	if message.NodeBatteryLevel == nil || *message.NodeBatteryLevel != 80 {
 		t.Errorf("regulated cells must report 80 while active, got %v", message.NodeBatteryLevel)
 	}
@@ -161,8 +158,8 @@ func TestCurrentMetricsMessageUsesBatteryProfile(t *testing.T) {
 		t.Error("regulated metrics payload must contain NodeBatteryLevel")
 	}
 
-	metrics.MResult.NodeStatus.NodeBatteryVoltage = 2.79
-	message = currentMetricsMessage()
+	result.NodeStatus.NodeBatteryVoltage = 2.79
+	message = currentMetricsMessage(result)
 	if message.NodeBatteryLevel == nil || *message.NodeBatteryLevel != 0 {
 		t.Errorf("regulated cells must report 0 below the threshold, got %v", message.NodeBatteryLevel)
 	}
@@ -170,14 +167,10 @@ func TestCurrentMetricsMessageUsesBatteryProfile(t *testing.T) {
 
 func TestCurrentMetricsMessageOmitsUnknownBatteryLevel(t *testing.T) {
 	originalSettings := settings.Load
-	originalMetrics := metrics.MResult
-	t.Cleanup(func() {
-		settings.Load = originalSettings
-		metrics.MResult = originalMetrics
-	})
+	t.Cleanup(func() { settings.Load = originalSettings })
 
 	settings.Load.Service.Pulse.BatteryProfile = ""
-	payload, err := json.Marshal(currentMetricsMessage())
+	payload, err := json.Marshal(currentMetricsMessage(metrics.Metrics{}))
 	if err != nil {
 		t.Fatalf("could not marshal metrics message: %v", err)
 	}
@@ -193,19 +186,16 @@ func TestCurrentMetricsMessageOmitsUnknownBatteryLevel(t *testing.T) {
 
 func TestSendDataPublishesExpectedPayload(t *testing.T) {
 	originalSettings := settings.Load
-	originalData := data.DResult
-	t.Cleanup(func() {
-		settings.Load = originalSettings
-		data.DResult = originalData
-	})
+	t.Cleanup(func() { settings.Load = originalSettings })
 
 	settings.Load.Service.Mqtt.Topics.Data = "pulse/data"
-	data.DResult.NodeValue.Total.Consume = "1.2345 kWh"
-	data.DResult.NodeValue.Total.Feed = "0.0000 kWh"
-	data.DResult.NodeValue.Current.Consume = "42 W"
+	result := data.Data{}
+	result.NodeValue.Total.Consume = "1.2345 kWh"
+	result.NodeValue.Total.Feed = "0.0000 kWh"
+	result.NodeValue.Current.Consume = "42 W"
 
 	client := &mockPublisher{connected: true}
-	sendData(client)
+	sendData(client, result)
 
 	if client.topic != "pulse/data" || client.qos != 0 || !client.retained {
 		t.Fatalf("unexpected publish options: topic=%q qos=%d retained=%t", client.topic, client.qos, client.retained)
@@ -225,23 +215,20 @@ func TestSendDataPublishesExpectedPayload(t *testing.T) {
 
 func TestSendMetricsPublishesExpectedPayload(t *testing.T) {
 	originalSettings := settings.Load
-	originalMetrics := metrics.MResult
-	t.Cleanup(func() {
-		settings.Load = originalSettings
-		metrics.MResult = originalMetrics
-	})
+	t.Cleanup(func() { settings.Load = originalSettings })
 
 	settings.Load.Service.Mqtt.Topics.Metrics = "pulse/metrics"
 	settings.Load.Service.Pulse.BatteryProfile = "alkaline"
-	metrics.MResult.NodeStatus.NodeBatteryVoltage = 2.6
-	metrics.MResult.NodeStatus.NodeTemperature = 21.5
-	metrics.MResult.NodeStatus.NodeAvgRssi = -55
-	metrics.MResult.NodeStatus.MeterMsgCountSent = 12
-	metrics.MResult.NodeStatus.MeterPkgCountSent = 4
-	metrics.MResult.HubAttachments.NodeVersion = "1.2.3"
+	result := metrics.Metrics{}
+	result.NodeStatus.NodeBatteryVoltage = 2.6
+	result.NodeStatus.NodeTemperature = 21.5
+	result.NodeStatus.NodeAvgRssi = -55
+	result.NodeStatus.MeterMsgCountSent = 12
+	result.NodeStatus.MeterPkgCountSent = 4
+	result.HubAttachments.NodeVersion = "1.2.3"
 
 	client := &mockPublisher{connected: true}
-	sendMetrics(client)
+	sendMetrics(client, result)
 
 	if client.topic != "pulse/metrics" || client.qos != 0 || !client.retained {
 		t.Fatalf("unexpected publish options: topic=%q qos=%d retained=%t", client.topic, client.qos, client.retained)
@@ -263,8 +250,8 @@ func TestSendDoesNothingWhenDisconnected(t *testing.T) {
 	dataClient := &mockPublisher{}
 	metricsClient := &mockPublisher{}
 
-	sendData(dataClient)
-	sendMetrics(metricsClient)
+	sendData(dataClient, data.Data{})
+	sendMetrics(metricsClient, metrics.Metrics{})
 
 	if dataClient.topic != "" || metricsClient.topic != "" {
 		t.Fatal("disconnected clients must not receive messages")
