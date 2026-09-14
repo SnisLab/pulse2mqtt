@@ -48,12 +48,7 @@ func Octet2Obis(o sml.OctetString) string {
 
 // ListEntry2Float converts a list entry to a float value.
 func ListEntry2Float(entry sml.ListEntry) float64 {
-	scaler := 1
-	if entry.Scaler != 0 {
-		scaler = int(entry.Scaler)
-	}
-
-	return float64(entry.Value.DataInt) * math.Pow10(scaler)
+	return float64(entry.Value.DataInt) * math.Pow10(int(entry.Scaler))
 }
 
 // PrintListEntry prints a list entry.
