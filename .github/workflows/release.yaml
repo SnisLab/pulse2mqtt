@@ -85,7 +85,17 @@ jobs:
             --message "Release ${{ steps.release.outputs.release_tag }}"
           git push origin "${{ steps.release.outputs.release_tag }}"
 
-      - name: Build release packages
+      - name: Prepare GoReleaser base tag
+        if: steps.release.outputs.mode == 'release'
+        shell: bash
+        env:
+          BASE_TAG: ${{ steps.release.outputs.base_tag }}
+        run: |
+          set -euo pipefail
+          git tag --force --annotate "${BASE_TAG}" "${GITHUB_SHA}" \
+            --message "Build base version ${BASE_TAG}"
+
+      - name: Run GoReleaser snapshot
         if: steps.release.outputs.mode == 'release'
         uses: goreleaser/goreleaser-action@v7
         with:
