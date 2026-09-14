@@ -65,132 +65,71 @@ jobs:
             exit 1
           fi
 
-          stable_tag="v${version}"
-          mode="edge"
+          release_version="${version}.${GITHUB_RUN_NUMBER}"
+          release_tag="v${release_version}"
 
-          if git rev-parse --verify --quiet "refs/tags/${stable_tag}" >/dev/null; then
-            tag_sha="$(git rev-list -n 1 "${stable_tag}")"
-            if [[ "${tag_sha}" == "${GITHUB_SHA}" ]]; then
-              if gh release view "${stable_tag}" >/dev/null 2>&1; then
-                mode="skip"
-              else
-                mode="stable"
-              fi
-            fi
-          else
-            mode="stable"
-          fi
+          echo "version=${release_version}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "base_tag=v${version}" >> "${GITHUB_OUTPUT}"
+          echo "mode=release" >> "${GITHUB_OUTPUT}"
+          echo "Release version: ${release_version}"
 
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "stable_tag=${stable_tag}" >> "${GITHUB_OUTPUT}"
-          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
-          echo "build_version=${version}.${{ github.run_number }}-edge" >> "${GITHUB_OUTPUT}"
-          echo "Release mode: ${mode}"
-
-      - name: Create stable tag
-        if: steps.release.outputs.mode == 'stable'
+      - name: Create release tag
+        if: steps.release.outputs.mode == 'release'
         shell: bash
         run: |
           set -euo pipefail
-          tag="${{ steps.release.outputs.stable_tag }}"
-          if ! git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag --annotate "${tag}" --message "Release ${tag}"
-            git push origin "${tag}"
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --annotate "${{ steps.release.outputs.release_tag }}" \
+            --message "Release ${{ steps.release.outputs.release_tag }}"
+          git push origin "${{ steps.release.outputs.release_tag }}"
 
-      - name: Publish stable release
-        if: steps.release.outputs.mode == 'stable'
-        uses: goreleaser/goreleaser-action@v7
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build edge packages
-        if: steps.release.outputs.mode == 'edge'
+      - name: Build release packages
+        if: steps.release.outputs.mode == 'release'
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: "~> v2"
           args: release --clean --snapshot
         env:
-          GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.stable_tag }}
+          GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.base_tag }}
           RUNNUMBER: ${{ github.run_number }}
 
-      - name: Publish edge release
-        if: steps.release.outputs.mode == 'edge'
+      - name: Publish release
+        if: steps.release.outputs.mode == 'release'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BUILD_VERSION: ${{ steps.release.outputs.build_version }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag --force edge "${GITHUB_SHA}"
-          git push --force origin refs/tags/edge
-
-          notes="${RUNNER_TEMP}/edge-release-notes.md"
-          printf 'Automated edge build `%s` from commit `%s`.\n' \
-            "${BUILD_VERSION}" "${GITHUB_SHA}" > "${notes}"
-
-          if gh release view edge >/dev/null 2>&1; then
-            gh release edit edge \
-              --title "Edge ${BUILD_VERSION}" \
-              --notes-file "${notes}" \
-              --prerelease
-          else
-            gh release create edge \
-              --target "${GITHUB_SHA}" \
-              --title "Edge ${BUILD_VERSION}" \
-              --notes-file "${notes}" \
-              --prerelease
-          fi
-
-          gh release upload edge \
+          gh release create "${RELEASE_TAG}" \
+            --target "${GITHUB_SHA}" \
+            --title "Release ${VERSION}" \
+            --generate-notes
+          gh release upload "${RELEASE_TAG}" \
             dist/*.apk \
             dist/*.deb \
             dist/*.tar.gz \
-            dist/checksums.txt \
-            --clobber
-
-      - name: No release required
-        if: steps.release.outputs.mode == 'skip'
-        run: |
-          echo "Stable release ${{ steps.release.outputs.stable_tag }} already exists for this commit"
+            dist/checksums.txt
 
       - name: Trigger Home Assistant app build
-        if: steps.release.outputs.mode != 'skip'
+        if: steps.release.outputs.mode == 'release'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.APP_PULSE2MQTT_TOKEN }}
-          MODE: ${{ steps.release.outputs.mode }}
-          STABLE_VERSION: ${{ steps.release.outputs.version }}
-          EDGE_VERSION: ${{ steps.release.outputs.build_version }}
-          STABLE_TAG: ${{ steps.release.outputs.stable_tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
 
-          if [[ "${MODE}" == "edge" ]]; then
-            version="${EDGE_VERSION}"
-            tag="edge"
-            channel="edge"
-          else
-            version="${STABLE_VERSION}"
-            tag="${STABLE_TAG}"
-            channel="latest"
-          fi
-
           jq -n \
-            --arg version "${version}" \
-            --arg tag "${tag}" \
-            --arg channel "${channel}" \
+            --arg version "${VERSION}" \
+            --arg tag "${RELEASE_TAG}" \
+            --arg channel "latest" \
             --arg sha "${SHA}" \
             '{event_type: "release-built", client_payload: {repository: "pulse2mqtt", version: $version, tag: $tag, channel: $channel, sha: $sha}}' \
             | gh api --method POST repos/SnisLab/app-pulse2mqtt/dispatches --input -

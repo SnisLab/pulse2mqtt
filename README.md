@@ -8,19 +8,18 @@ Copy `settings.default.yaml` to `settings.yaml`, configure the Pulse and MQTT co
 
 ## Releases
 
-Every push and pull request targeting `main` runs the tests and validates the GoReleaser configuration. Pushes to `main` additionally publish either a stable or an edge release.
+Every push and pull request targeting `main` runs the tests and validates the GoReleaser configuration. Every push to `main` additionally publishes an immutable release.
 
-- If no tag exists for the version in `include/version/version.go`, the workflow creates the tag and publishes a stable GitHub release such as `v0.5.0`.
-- Further pushes with the same base version update the rolling `edge` prerelease.
-- Edge builds use versions such as `0.5.0.48-edge`, where `48` is the GitHub Actions run number.
-- Changing the base version to `0.6.0` causes the next push to publish the new stable `v0.6.0` release.
+- Release versions consist of the base version from `include/version/version.go` and the GitHub Actions run number, for example `0.4.0.37`.
+- Each release gets its own tag and GitHub release, for example `v0.4.0.37`.
+- Changing the base version to `0.5.0` causes subsequent releases to use versions such as `0.5.0.38`.
 
-Stable releases are permanent. The `edge` release and its assets are replaced on every edge build. Packages and binary archives use fixed asset names. For example:
+Releases are permanent. Packages and binary archives use fixed asset names within each release. For example:
 
 ```text
-https://github.com/SnisLab/pulse2mqtt/releases/download/edge/pulse2mqtt_linux_amd64.apk
-https://github.com/SnisLab/pulse2mqtt/releases/download/edge/pulse2mqtt_linux_arm64.apk
-https://github.com/SnisLab/pulse2mqtt/releases/download/edge/pulse2mqtt_linux_armv7.apk
+https://github.com/SnisLab/pulse2mqtt/releases/download/v0.4.0.37/pulse2mqtt_linux_amd64.apk
+https://github.com/SnisLab/pulse2mqtt/releases/download/v0.4.0.37/pulse2mqtt_linux_arm64.apk
+https://github.com/SnisLab/pulse2mqtt/releases/download/v0.4.0.37/pulse2mqtt_linux_armv7.apk
 ```
 
 The APK contains the binary and `settings.default.yaml`. The DEB additionally installs the systemd service and its package scripts.
@@ -31,7 +30,7 @@ Home Assistant packaging is maintained separately in
 [SnisLab/app-pulse2mqtt](https://github.com/SnisLab/app-pulse2mqtt) and is
 distributed through
 [SnisLab/home-assistant-apps](https://github.com/SnisLab/home-assistant-apps).
-Stable and edge releases automatically notify the packaging repository after
+Releases automatically notify the packaging repository after
 the binaries and GitHub release have been published successfully. The release
 workflow sends a `release-built` dispatch to
 `SnisLab/app-pulse2mqtt`; configure the `APP_PULSE2MQTT_TOKEN` Actions secret

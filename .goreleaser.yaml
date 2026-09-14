@@ -26,7 +26,7 @@ builds:
         goarm: 7
 
 snapshot:
-  version_template: "{{ .Version }}.{{ .Env.RUNNUMBER }}-edge"
+  version_template: "{{ .Version }}.{{ .Env.RUNNUMBER }}"
 
 archives:
   - id: pulse2mqtt
