@@ -11,6 +11,20 @@
 - Trigger and verify the Home Assistant app release after the main release.
 - Add unit tests for data parsing, HTTP handling, configuration, MQTT messages and shutdown behavior.
 
+## 0.4.0
+
+- Split Home Assistant packaging from the Pulse2MQTT application repository.
+- Publish the Home Assistant app using a versioned application image.
+- Add selectable AA battery profiles and an estimated battery entity.
+
+## 0.3.1
+
+- Fix Home Assistant app startup.
+
+## 0.3.0
+
+- Add the Home Assistant app and MQTT Discovery integration.
+
 ## 0.2.3
 
 - Update dependencies and Go tooling.
