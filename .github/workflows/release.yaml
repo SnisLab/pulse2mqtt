@@ -79,8 +79,49 @@ jobs:
             echo "release_tag=${release_tag}"
             echo "base_tag=v${version}"
             echo "mode=release"
+            echo "release_sha=${GITHUB_SHA}"
           } >> "${GITHUB_OUTPUT}"
           echo "Release version: ${release_version}"
+
+      - name: Update changelog
+        if: steps.release.outputs.mode == 'release'
+        id: changelog
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          ORIGINAL_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}" >/dev/null; then
+            echo "release_sha=$(git rev-list -n 1 "${RELEASE_TAG}")" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          previous_tag="$(git tag --list 'v*' --sort=-version:refname | sed -n '1p')"
+          if [[ -n "${previous_tag}" ]]; then
+            changes="$(git log --no-merges --format='- %s (%h)' "${previous_tag}..${ORIGINAL_SHA}")"
+          else
+            changes="$(git log --no-merges --format='- %s (%h)' "${ORIGINAL_SHA}")"
+          fi
+
+          if [[ -z "${changes}" ]]; then
+            changes="- Maintenance release."
+          fi
+
+          {
+            printf '## %s\n\n' "${VERSION}"
+            printf '%s\n\n' "${changes}"
+            cat CHANGELOG.md
+          } > "${RUNNER_TEMP}/CHANGELOG.md"
+          mv "${RUNNER_TEMP}/CHANGELOG.md" CHANGELOG.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog for ${VERSION} [skip ci]"
+          git push origin HEAD:main
+          echo "release_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
 
       - name: Create release tag
         if: steps.release.outputs.mode == 'release'
@@ -90,10 +131,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           tag="${{ steps.release.outputs.release_tag }}"
+          release_sha="${{ steps.changelog.outputs.release_sha }}"
           if git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
-            test "$(git rev-list -n 1 "${tag}")" = "${GITHUB_SHA}"
+            test "$(git rev-list -n 1 "${tag}")" = "${release_sha}"
           else
-            git tag --annotate "${tag}" --message "Release ${tag}"
+            git tag --annotate "${tag}" "${release_sha}" --message "Release ${tag}"
             git push origin "${tag}"
           fi
 
@@ -102,9 +144,10 @@ jobs:
         shell: bash
         env:
           BASE_TAG: ${{ steps.release.outputs.base_tag }}
+          RELEASE_SHA: ${{ steps.changelog.outputs.release_sha }}
         run: |
           set -euo pipefail
-          git tag --force --annotate "${BASE_TAG}" "${GITHUB_SHA}" \
+          git tag --force --annotate "${BASE_TAG}" "${RELEASE_SHA}" \
             --message "Build base version ${BASE_TAG}"
 
       - name: Run GoReleaser snapshot
@@ -125,11 +168,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
           VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_SHA: ${{ steps.changelog.outputs.release_sha }}
         run: |
           set -euo pipefail
           if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             gh release create "${RELEASE_TAG}" \
-              --target "${GITHUB_SHA}" \
+              --target "${RELEASE_SHA}" \
               --title "Release ${VERSION}" \
               --generate-notes
           fi
@@ -166,7 +210,7 @@ jobs:
           GH_TOKEN: ${{ secrets.APP_PULSE2MQTT_TOKEN }}
           VERSION: ${{ steps.release.outputs.version }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ steps.changelog.outputs.release_sha }}
         run: |
           set -euo pipefail
 

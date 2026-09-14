@@ -29,6 +29,8 @@ https://github.com/SnisLab/pulse2mqtt/releases/download/v0.4.0.37/pulse2mqtt_lin
 ```
 
 The APK contains the binary and `settings.default.yaml`. The DEB additionally installs the systemd service and its package scripts.
+The release workflow prepends the commits since the previous release to
+`CHANGELOG.md` and commits the update with `[skip ci]`.
 
 ## Home Assistant App
 
