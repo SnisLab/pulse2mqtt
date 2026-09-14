@@ -3,10 +3,42 @@ package mqtt
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
+
+	"pulse2mqtt/include/data"
 	"pulse2mqtt/include/metrics"
 	"pulse2mqtt/include/settings"
 )
+
+type mockToken struct{}
+
+func (mockToken) Wait() bool                     { return true }
+func (mockToken) WaitTimeout(time.Duration) bool { return true }
+func (mockToken) Done() <-chan struct{} {
+	channel := make(chan struct{})
+	close(channel)
+	return channel
+}
+func (mockToken) Error() error { return nil }
+
+type mockPublisher struct {
+	connected bool
+	topic     string
+	qos       byte
+	retained  bool
+	payload   interface{}
+}
+
+func (client *mockPublisher) IsConnected() bool { return client.connected }
+func (client *mockPublisher) Publish(topic string, qos byte, retained bool, payload interface{}) paho.Token {
+	client.topic = topic
+	client.qos = qos
+	client.retained = retained
+	client.payload = payload
+	return mockToken{}
+}
 
 func TestBuildDiscoveryConfig(t *testing.T) {
 	original := settings.Load
@@ -110,5 +142,85 @@ func TestCurrentMetricsMessageUsesBatteryProfile(t *testing.T) {
 	message = currentMetricsMessage()
 	if message.NodeBatteryLevel == nil || *message.NodeBatteryLevel != 0 {
 		t.Errorf("regulated cells must report 0 below the threshold, got %v", message.NodeBatteryLevel)
+	}
+}
+
+func TestSendDataPublishesExpectedPayload(t *testing.T) {
+	originalSettings := settings.Load
+	originalData := data.DResult
+	t.Cleanup(func() {
+		settings.Load = originalSettings
+		data.DResult = originalData
+	})
+
+	settings.Load.Service.Mqtt.Topics.Data = "pulse/data"
+	data.DResult.NodeValue.Total.Consume = "1.2345 kWh"
+	data.DResult.NodeValue.Total.Feed = "0.0000 kWh"
+	data.DResult.NodeValue.Current.Consume = "42 W"
+
+	client := &mockPublisher{connected: true}
+	sendData(client)
+
+	if client.topic != "pulse/data" || client.qos != 0 || !client.retained {
+		t.Fatalf("unexpected publish options: topic=%q qos=%d retained=%t", client.topic, client.qos, client.retained)
+	}
+
+	var message Message
+	if err := json.Unmarshal([]byte(client.payload.(string)), &message); err != nil {
+		t.Fatalf("could not decode data payload: %v", err)
+	}
+	if message.Stromverbrauch != "1.2345 kWh" || message.Stromeinspeißung != "0.0000 kWh" || message.Aktuellerverbrauch != "42 W" {
+		t.Fatalf("unexpected data payload: %+v", message)
+	}
+	if message.Time == "" {
+		t.Fatal("data payload has no timestamp")
+	}
+}
+
+func TestSendMetricsPublishesExpectedPayload(t *testing.T) {
+	originalSettings := settings.Load
+	originalMetrics := metrics.MResult
+	t.Cleanup(func() {
+		settings.Load = originalSettings
+		metrics.MResult = originalMetrics
+	})
+
+	settings.Load.Service.Mqtt.Topics.Metrics = "pulse/metrics"
+	settings.Load.Service.Pulse.BatteryProfile = "alkaline"
+	metrics.MResult.NodeStatus.NodeBatteryVoltage = 2.6
+	metrics.MResult.NodeStatus.NodeTemperature = 21.5
+	metrics.MResult.NodeStatus.NodeAvgRssi = -55
+	metrics.MResult.NodeStatus.MeterMsgCountSent = 12
+	metrics.MResult.NodeStatus.MeterPkgCountSent = 4
+	metrics.MResult.HubAttachments.NodeVersion = "1.2.3"
+
+	client := &mockPublisher{connected: true}
+	sendMetrics(client)
+
+	if client.topic != "pulse/metrics" || client.qos != 0 || !client.retained {
+		t.Fatalf("unexpected publish options: topic=%q qos=%d retained=%t", client.topic, client.qos, client.retained)
+	}
+
+	var message metricsMessage
+	if err := json.Unmarshal([]byte(client.payload.(string)), &message); err != nil {
+		t.Fatalf("could not decode metrics payload: %v", err)
+	}
+	if message.NodeBatteryLevel == nil || *message.NodeBatteryLevel != 50 {
+		t.Fatalf("unexpected battery level: %v", message.NodeBatteryLevel)
+	}
+	if message.NodeVersion != "1.2.3" || message.MeterMsgCountSent != "12" {
+		t.Fatalf("unexpected metrics payload: %+v", message)
+	}
+}
+
+func TestSendDoesNothingWhenDisconnected(t *testing.T) {
+	dataClient := &mockPublisher{}
+	metricsClient := &mockPublisher{}
+
+	sendData(dataClient)
+	sendMetrics(metricsClient)
+
+	if dataClient.topic != "" || metricsClient.topic != "" {
+		t.Fatal("disconnected clients must not receive messages")
 	}
 }

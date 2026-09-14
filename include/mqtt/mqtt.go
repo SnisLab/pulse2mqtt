@@ -310,7 +310,12 @@ func connect() (client paho.Client, err error) {
 }
 
 // publish sends a retained message to a specified MQTT topic.
-func publish(client paho.Client, topic string, text string) {
+type mqttPublisher interface {
+	IsConnected() bool
+	Publish(topic string, qos byte, retained bool, payload interface{}) paho.Token
+}
+
+func publish(client mqttPublisher, topic string, text string) {
 	token := client.Publish(topic, 0, true, text)
 	if token.Wait() && token.Error() != nil {
 		log.Error("Can not publish MQTT message:", token.Error())
@@ -359,6 +364,10 @@ func currentMetricsMessage() metricsMessage {
 
 // SendData sends the current data to the MQTT broker.
 func SendData(client paho.Client) {
+	sendData(client)
+}
+
+func sendData(client mqttPublisher) {
 	if !client.IsConnected() {
 		log.Debug("MQTT reconnecting")
 		return
@@ -381,6 +390,10 @@ func SendData(client paho.Client) {
 
 // SendMetrics sends the current metrics to the MQTT broker.
 func SendMetrics(client paho.Client) {
+	sendMetrics(client)
+}
+
+func sendMetrics(client mqttPublisher) {
 	if !client.IsConnected() {
 		log.Debug("MQTT reconnecting")
 		return
