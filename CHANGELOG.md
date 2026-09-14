@@ -11,6 +11,33 @@
 - Trigger and verify the Home Assistant app release after the main release.
 - Add unit tests for data parsing, HTTP handling, configuration, MQTT messages and shutdown behavior.
 
+## 0.4.5
+
+- Shut down background workers cleanly on SIGINT and SIGTERM.
+- Add retry-safe release handling and verify published release assets.
+- Add Actionlint and race detection to continuous integration.
+- Support explicit configuration paths and validate battery profiles.
+- Improve MQTT connection option and Home Assistant discovery tests.
+
+## 0.4.4
+
+- Add tests for MQTT data and metrics payloads.
+- Test disconnected MQTT clients without requiring a broker.
+
+## 0.4.3
+
+- Add HTTP tests for Pulse authentication, node selection and error responses.
+
+## 0.4.2
+
+- Handle invalid meter data safely without panicking.
+- Correct SML scaler handling for a zero scaler.
+
+## 0.4.1
+
+- Validate the configuration before starting MQTT and worker processes.
+- Report missing or invalid configuration files clearly.
+
 ## 0.4.0
 
 - Split Home Assistant packaging from the Pulse2MQTT application repository.
