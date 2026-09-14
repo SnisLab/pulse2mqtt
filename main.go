@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"os/signal"
@@ -19,31 +20,48 @@ import (
 )
 
 // doKeepAlive sends a keep-alive message every 60 seconds.
-func doKeepAlive() {
-	time.Sleep(60 * time.Second)
+func doKeepAlive(ctx context.Context) {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
 	for {
-		log.Info("Keep alive")
-		time.Sleep(60 * time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			log.Info("Keep alive")
+		}
 	}
 }
 
 // doMetrics retrieves and sends metrics data every 10 seconds.
-func doMetrics(MqttClient ex_mqtt.Client) {
+func doMetrics(ctx context.Context, MqttClient ex_mqtt.Client) {
 	log.Info("run Metrics")
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 	for {
 		metrics.GetMetrics()
 		mqtt.SendMetrics(MqttClient)
-		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
 // doData retrieves and sends data every second.
-func doData(MqttClient ex_mqtt.Client) {
+func doData(ctx context.Context, MqttClient ex_mqtt.Client) {
 	log.Info("run Data")
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		data.GetData()
 		mqtt.SendData(MqttClient)
-		time.Sleep(time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
@@ -69,19 +87,23 @@ func main() {
 
 	settings.LogConfig(settings.Load)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	log.Info("MQTT:")
 	MqttClient := mqtt.Start()
-	// wait 1 sec
-	time.Sleep(time.Second)
+	select {
+	case <-ctx.Done():
+		mqtt.Stop(MqttClient)
+		return
+	case <-time.After(time.Second):
+	}
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go doKeepAlive(ctx)
+	go doMetrics(ctx, MqttClient)
+	go doData(ctx, MqttClient)
 
-	go doKeepAlive()
-	go doMetrics(MqttClient)
-	go doData(MqttClient)
-
-	sig := <-c
-	log.Info("Received signal:", sig)
+	<-ctx.Done()
+	log.Info("Shutdown requested")
 	mqtt.Stop(MqttClient)
 }
