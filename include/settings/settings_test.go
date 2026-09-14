@@ -70,6 +70,7 @@ func TestConfigValidate(t *testing.T) {
 		{name: "missing metrics topic", setup: func(config *Config) { config.Service.Mqtt.Topics.Metrics = "" }},
 		{name: "missing Pulse address", setup: func(config *Config) { config.Service.Pulse.IP = "" }},
 		{name: "invalid Pulse node", setup: func(config *Config) { config.Service.Pulse.Node = 0 }},
+		{name: "unsupported battery profile", setup: func(config *Config) { config.Service.Pulse.BatteryProfile = "lithium" }},
 	}
 
 	for _, tt := range tests {

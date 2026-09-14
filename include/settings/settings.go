@@ -80,7 +80,19 @@ func (config Config) Validate() error {
 	if config.Service.Pulse.Node < 1 {
 		return fmt.Errorf("Pulse node must be greater than 0")
 	}
+	if profile := strings.TrimSpace(config.Service.Pulse.BatteryProfile); profile != "" && !isSupportedBatteryProfile(profile) {
+		return fmt.Errorf("unsupported battery profile %q", profile)
+	}
 	return nil
+}
+
+func isSupportedBatteryProfile(profile string) bool {
+	switch profile {
+	case "alkaline", "lfb_aa", "nimh_1_2v", "regulated_1_5v":
+		return true
+	default:
+		return false
+	}
 }
 
 func readConfig() (Config, error) {
