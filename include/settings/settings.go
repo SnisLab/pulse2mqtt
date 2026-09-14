@@ -11,6 +11,7 @@ import (
 
 const CONFIG_PATH = "./settings.yaml"
 const CONFIG_PATH_DEB = "/usr/local/etc/pulse2mqtt/settings.yaml"
+const CONFIG_PATH_ENV = "PULSE2MQTT_CONFIG"
 
 type Config struct {
 	Service struct {
@@ -83,6 +84,10 @@ func (config Config) Validate() error {
 }
 
 func readConfig() (Config, error) {
+	if path := strings.TrimSpace(os.Getenv(CONFIG_PATH_ENV)); path != "" {
+		return loadConfig(path)
+	}
+
 	path := ""
 
 	if _, err := os.Stat(CONFIG_PATH_DEB); err == nil {

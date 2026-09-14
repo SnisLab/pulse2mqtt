@@ -116,3 +116,27 @@ func TestLoadConfigReportsMissingFile(t *testing.T) {
 		t.Fatal("missing config file was accepted")
 	}
 }
+
+func TestReadConfigUsesEnvironmentPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "custom.yaml")
+	if err := os.WriteFile(path, []byte("service:\n  mqtt:\n    host: custom.example\n    port: 1883\n"), 0600); err != nil {
+		t.Fatalf("could not create config fixture: %v", err)
+	}
+	t.Setenv(CONFIG_PATH_ENV, path)
+
+	config, err := readConfig()
+	if err != nil {
+		t.Fatalf("could not load config from environment path: %v", err)
+	}
+	if config.Service.Mqtt.Host != "custom.example" {
+		t.Fatalf("unexpected config loaded from environment path: %q", config.Service.Mqtt.Host)
+	}
+}
+
+func TestReadConfigReportsMissingEnvironmentPath(t *testing.T) {
+	t.Setenv(CONFIG_PATH_ENV, filepath.Join(t.TempDir(), "missing.yaml"))
+
+	if _, err := readConfig(); err == nil {
+		t.Fatal("missing environment config file was accepted")
+	}
+}
