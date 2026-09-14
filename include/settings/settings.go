@@ -83,7 +83,6 @@ func (config Config) Validate() error {
 }
 
 func readConfig() (Config, error) {
-	var config Config
 	path := ""
 
 	if _, err := os.Stat(CONFIG_PATH_DEB); err == nil {
@@ -91,9 +90,13 @@ func readConfig() (Config, error) {
 	} else if _, err := os.Stat(CONFIG_PATH); err == nil {
 		path = CONFIG_PATH
 	} else {
-		return config, fmt.Errorf("configuration file not found (checked %s and %s)", CONFIG_PATH_DEB, CONFIG_PATH)
+		return Config{}, fmt.Errorf("configuration file not found (checked %s and %s)", CONFIG_PATH_DEB, CONFIG_PATH)
 	}
+	return loadConfig(path)
+}
 
+func loadConfig(path string) (Config, error) {
+	var config Config
 	file, err := os.Open(path)
 	if err != nil {
 		return config, fmt.Errorf("open configuration file %s: %w", path, err)

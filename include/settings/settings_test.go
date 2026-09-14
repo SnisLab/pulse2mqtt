@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -78,5 +80,39 @@ func TestConfigValidate(t *testing.T) {
 				t.Fatal("invalid config was accepted")
 			}
 		})
+	}
+}
+
+func TestLoadConfig(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "settings.yaml")
+	if err := os.WriteFile(path, []byte("service:\n  mqtt:\n    host: mqtt.example\n    port: 1883\n"), 0600); err != nil {
+		t.Fatalf("could not create config fixture: %v", err)
+	}
+
+	config, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("could not load valid config: %v", err)
+	}
+	if config.Service.Mqtt.Host != "mqtt.example" || config.Service.Mqtt.Port != 1883 {
+		t.Fatalf("unexpected loaded config: %+v", config.Service.Mqtt)
+	}
+}
+
+func TestLoadConfigRejectsInvalidYAML(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "settings.yaml")
+	if err := os.WriteFile(path, []byte("service: [invalid"), 0600); err != nil {
+		t.Fatalf("could not create invalid config fixture: %v", err)
+	}
+
+	if _, err := loadConfig(path); err == nil {
+		t.Fatal("invalid YAML was accepted")
+	}
+}
+
+func TestLoadConfigReportsMissingFile(t *testing.T) {
+	if _, err := loadConfig(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
+		t.Fatal("missing config file was accepted")
 	}
 }
