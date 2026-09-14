@@ -124,9 +124,18 @@ jobs:
           } > "${RUNNER_TEMP}/changelog-entry.md"
 
           {
-            printf '## %s\n\n' "${VERSION}"
-            cat "${RUNNER_TEMP}/changelog-entry.md"
-            cat CHANGELOG.md
+            if [[ "$(sed -n '1p' CHANGELOG.md)" == "# Changelog" ]]; then
+              sed -n '1p' CHANGELOG.md
+              printf '\n'
+              printf '## %s\n\n' "${VERSION}"
+              cat "${RUNNER_TEMP}/changelog-entry.md"
+              sed -n '2,$p' CHANGELOG.md
+            else
+              printf '# Changelog\n\n'
+              printf '## %s\n\n' "${VERSION}"
+              cat "${RUNNER_TEMP}/changelog-entry.md"
+              cat CHANGELOG.md
+            fi
           } > "${RUNNER_TEMP}/CHANGELOG.md"
           mv "${RUNNER_TEMP}/CHANGELOG.md" CHANGELOG.md
 
