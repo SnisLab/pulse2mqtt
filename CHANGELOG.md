@@ -38,7 +38,6 @@
 ## 0.4.2
 
 - Handle invalid meter data safely without panicking.
-- Correct SML scaler handling for a zero scaler.
 
 ## 0.4.1
 

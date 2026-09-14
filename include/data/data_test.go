@@ -31,7 +31,7 @@ func TestListEntry2Float(t *testing.T) {
 		scaler int8
 		want   float64
 	}{
-		{name: "zero scaler uses unit scale", value: 12, scaler: 0, want: 12},
+		{name: "zero scaler uses application default", value: 12, scaler: 0, want: 120},
 		{name: "positive scaler", value: 12, scaler: 2, want: 1200},
 		{name: "negative scaler", value: 1234, scaler: -3, want: 1.234},
 	}
@@ -57,6 +57,15 @@ func TestPrintListEntryUpdatesKnownValues(t *testing.T) {
 
 	if got, want := result.NodeValue.Total.Consume, "0.0012 kWh"; got != want {
 		t.Fatalf("unexpected total consumption: got %q, want %q", got, want)
+	}
+
+	PrintListEntry(sml.ListEntry{
+		ObjName: sml.OctetString{1, 0, 16, 7, 0, 255},
+		Unit:    0x1B,
+		Value:   sml.Value{Typ: sml.TYPEINTEGER, DataInt: 123},
+	}, &result)
+	if got, want := result.NodeValue.Current.Consume, "123 W"; got != want {
+		t.Fatalf("unexpected current consumption: got %q, want %q", got, want)
 	}
 }
 
