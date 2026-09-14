@@ -1,3 +1,10 @@
+## 0.5.0.13
+
+- ci: update changelog during releases (29a927b)
+- docs: document 0.4 release history (f3b7758)
+- docs: complete release history (d106879)
+- docs: add project changelog (6de514e)
+
 # Changelog
 
 ## 0.5.0
