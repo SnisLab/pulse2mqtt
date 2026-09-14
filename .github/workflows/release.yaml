@@ -138,6 +138,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "::error title=Missing app dispatch token::The APP_PULSE2MQTT_TOKEN secret is not configured."
+            exit 1
+          fi
+
           jq -n \
             --arg version "${VERSION}" \
             --arg tag "${RELEASE_TAG}" \
