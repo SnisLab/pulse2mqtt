@@ -32,6 +32,8 @@ jobs:
         run: go test -race ./...
       - name: Lint GitHub Actions
         uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: .github/workflows/release.yaml
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
