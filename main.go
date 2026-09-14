@@ -68,13 +68,13 @@ func doData(ctx context.Context, MqttClient ex_mqtt.Client) {
 func main() {
 	log.SetDebugLevel(3)
 	log.Info("Welcome to Pulse2MQTT v" + version.Version)
-	vars.Vars()
+	options := vars.Vars()
 
-	if vars.Help {
+	if options.Help {
 		flag.PrintDefaults()
 		return
 	}
-	if vars.Verbose {
+	if options.Verbose {
 		log.SetDebugLevel(1)
 	}
 

@@ -10,7 +10,6 @@ import (
 	"pulse2mqtt/include/data"
 	"pulse2mqtt/include/metrics"
 	"pulse2mqtt/include/settings"
-	"pulse2mqtt/include/vars"
 )
 
 type mockToken struct{}
@@ -309,10 +308,8 @@ func TestStopDisconnectsWithoutPublishingWhenDiscoveryDisabled(t *testing.T) {
 
 func TestClientOptions(t *testing.T) {
 	originalSettings := settings.Load
-	originalClientID := vars.Mqtt_cID
 	t.Cleanup(func() {
 		settings.Load = originalSettings
-		vars.Mqtt_cID = originalClientID
 	})
 
 	settings.Load.Service.Mqtt.Host = "mqtt.example"
@@ -321,7 +318,6 @@ func TestClientOptions(t *testing.T) {
 	settings.Load.Service.Mqtt.Pass = "mqtt-pass"
 	settings.Load.Service.HomeAssistant.Discovery = true
 	settings.Load.Service.Pulse.Node = 3
-	vars.Mqtt_cID = "test-client"
 
 	opts := clientOptions()
 	if len(opts.Servers) != 1 || opts.Servers[0].String() != "mqtt://mqtt.example:1884" {
