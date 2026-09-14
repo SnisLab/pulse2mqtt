@@ -6,6 +6,12 @@ Pulse2MQTT reads a Tibber Pulse on the local network and publishes meter reading
 
 Copy `settings.default.yaml` to `settings.yaml`, configure the Pulse and MQTT connection, and start `pulse2mqtt`. Home Assistant MQTT Discovery remains disabled unless explicitly enabled in the configuration.
 
+To use a configuration at a different path, set `PULSE2MQTT_CONFIG`:
+
+```shell
+PULSE2MQTT_CONFIG=/config/settings.yaml ./pulse2mqtt
+```
+
 ## Releases
 
 Every push and pull request targeting `main` runs the tests and validates the GoReleaser configuration. Every push to `main` additionally publishes an immutable release.
