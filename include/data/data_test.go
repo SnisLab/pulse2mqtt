@@ -1,9 +1,14 @@
 package data
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	sml "github.com/DjSni/go-sml"
+
+	"pulse2mqtt/include/settings"
 )
 
 func TestOctet2Obis(t *testing.T) {
@@ -53,5 +58,81 @@ func TestPrintListEntryUpdatesKnownValues(t *testing.T) {
 
 	if got, want := DResult.NodeValue.Total.Consume, "0.0012 kWh"; got != want {
 		t.Fatalf("unexpected total consumption: got %q, want %q", got, want)
+	}
+}
+
+func TestGetDataUsesBasicAuthAndNodeID(t *testing.T) {
+	originalSettings := settings.Load
+	originalResult := DResult
+	t.Cleanup(func() {
+		settings.Load = originalSettings
+		DResult = originalResult
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		username, password, ok := r.BasicAuth()
+		if !ok || username != "pulse-user" || password != "pulse-password" {
+			t.Errorf("unexpected basic auth: user=%q password=%q ok=%t", username, password, ok)
+		}
+		if got, want := r.URL.Query().Get("node_id"), "7"; got != want {
+			t.Errorf("unexpected node ID: got %q, want %q", got, want)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(make([]byte, 16))
+	}))
+	defer server.Close()
+
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	settings.Load.Service.Pulse.User = "pulse-user"
+	settings.Load.Service.Pulse.Password = "pulse-password"
+	settings.Load.Service.Pulse.Node = 7
+
+	GetData()
+}
+
+func TestGetDataIgnoresFailedResponse(t *testing.T) {
+	originalSettings := settings.Load
+	originalResult := DResult
+	t.Cleanup(func() {
+		settings.Load = originalSettings
+		DResult = originalResult
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	DResult.NodeValue.Total.Consume = "unchanged"
+
+	GetData()
+
+	if got := DResult.NodeValue.Total.Consume; got != "unchanged" {
+		t.Fatalf("failed response changed data result to %q", got)
+	}
+}
+
+func TestGetDataIgnoresInvalidSML(t *testing.T) {
+	originalSettings := settings.Load
+	originalResult := DResult
+	t.Cleanup(func() {
+		settings.Load = originalSettings
+		DResult = originalResult
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(append(make([]byte, 8), 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09))
+	}))
+	defer server.Close()
+
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	DResult.NodeValue.Total.Consume = "unchanged"
+
+	GetData()
+
+	if got := DResult.NodeValue.Total.Consume; got != "unchanged" {
+		t.Fatalf("invalid SML changed data result to %q", got)
 	}
 }
