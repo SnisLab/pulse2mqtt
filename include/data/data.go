@@ -1,6 +1,8 @@
 package data
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"math"
@@ -97,6 +99,14 @@ func PrintListEntry(entry sml.ListEntry, result *Data) {
 	}
 }
 
+func parseSML(body []byte) ([]sml.Message, error) {
+	frame, err := sml.TransportRead(bufio.NewReader(bytes.NewReader(body)))
+	if err == nil && len(frame) >= 16 {
+		return sml.FileParse(frame[8 : len(frame)-8])
+	}
+	return sml.FileParse(body)
+}
+
 // GetData retrieves the data from the specified URL and parses the response.
 func GetData() Data {
 	var result Data
@@ -138,12 +148,7 @@ func GetData() Data {
 		log.Error(" ")
 		log.Error(" ")
 	} else {
-		payload := body[8 : len(body)-8]
-		if pulse.DataPath() == "/node_data.json" {
-			// The modern endpoint returns the SML stream without the legacy framing.
-			payload = body
-		}
-		messages, err := sml.FileParse(payload)
+		messages, err := parseSML(body)
 		if err != nil {
 			log.Error("Parse error:", err)
 			return result
