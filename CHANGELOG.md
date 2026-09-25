@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.3.17
+
+### Fixed
+
+- fix: handle Pulse SML transport framing (2e30c60)
+
+
 ## 0.5.3.16
 
 ### Fixed
