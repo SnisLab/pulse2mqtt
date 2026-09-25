@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.3.16
+
+### Fixed
+
+- fix: parse modern Pulse SML payloads (4043788)
+
+
 ## 0.5.3.15
 
 ### Added
