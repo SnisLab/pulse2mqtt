@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.3.20
+
+### Fixed
+
+- fix: parse modern Pulse timestamp fields (712344c)
+
+
 ## 0.5.3.17
 
 ### Fixed
