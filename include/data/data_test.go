@@ -3,11 +3,13 @@ package data
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	sml "github.com/DjSni/go-sml"
 
+	"pulse2mqtt/include/pulse"
 	"pulse2mqtt/include/settings"
 )
 
@@ -130,5 +132,48 @@ func TestGetDataIgnoresInvalidSML(t *testing.T) {
 	result := GetData()
 	if got := result.NodeValue.Total.Consume; got != "" {
 		t.Fatalf("invalid SML returned data result %q", got)
+	}
+}
+
+func TestModernPulseFrameUsesCommonParser(t *testing.T) {
+	frame, err := os.ReadFile(`S:\node_data.bin`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	messages, err := parseSML(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 3 {
+		t.Fatalf("parsed %d messages, want 3", len(messages))
+	}
+	listResponses := 0
+	for _, message := range messages {
+		if message.MessageBody.Tag == sml.MESSAGEGETLISTRESPONSE {
+			listResponses++
+		}
+	}
+	if listResponses == 0 {
+		t.Fatal("no MESSAGEGETLISTRESPONSE found")
+	}
+
+	originalSettings := settings.Load
+	t.Cleanup(func() { settings.Load = originalSettings })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/node_data.json" {
+			t.Errorf("unexpected endpoint: %s", r.URL.Path)
+		}
+		_, _ = w.Write(frame)
+	}))
+	defer server.Close()
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	settings.Load.Service.Pulse.Node = 1
+	settings.Load.Service.Pulse.Version = "modern"
+	if err := pulse.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	result := GetData()
+	if result.NodeValue.Total.Consume == "" || result.NodeValue.Total.Feed == "" {
+		t.Fatalf("modern frame produced empty values: consume=%q feed=%q", result.NodeValue.Total.Consume, result.NodeValue.Total.Feed)
 	}
 }

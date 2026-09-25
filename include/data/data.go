@@ -101,41 +101,13 @@ func PrintListEntry(entry sml.ListEntry, result *Data) {
 
 func parseSML(body []byte) ([]sml.Message, error) {
 	frame, err := sml.TransportRead(bufio.NewReader(bytes.NewReader(body)))
-	payload := body
-	framed := false
-	if err == nil && len(frame) >= 16 {
-		payload = frame[8 : len(frame)-8]
-		framed = true
+	if err != nil {
+		return nil, err
 	}
-	if pulse.DataPath() == "/node_data.json" {
-		return parseModernSML(payload), nil
+	if len(frame) < 16 {
+		return nil, fmt.Errorf("SML transport frame too short: %d", len(frame))
 	}
-	if framed {
-		return sml.FileParse(payload)
-	}
-	return sml.FileParse(body)
-}
-
-func parseModernSML(payload []byte) []sml.Message {
-	// New firmware marks the SML timestamp value as 0x45. go-sml expects the
-	// equivalent unsigned value 0x65 and otherwise stops before the value list.
-	normalized := append([]byte(nil), payload...)
-	for i := 0; i+3 < len(normalized); i++ {
-		if normalized[i] == 0x72 && normalized[i+1] == 0x62 && normalized[i+2] == 0x01 && normalized[i+3] == 0x45 {
-			normalized[i+3] = 0x65
-		}
-	}
-
-	buf := &sml.Buffer{Bytes: normalized}
-	messages := make([]sml.Message, 0)
-	for buf.Cursor < len(buf.Bytes) {
-		message, err := sml.MessageParse(buf, false)
-		if err != nil {
-			return messages
-		}
-		messages = append(messages, message)
-	}
-	return messages
+	return sml.FileParse(frame[8 : len(frame)-8])
 }
 
 // GetData retrieves the data from the specified URL and parses the response.
