@@ -60,23 +60,23 @@ func Initialize() error {
 func probe(client *http.Client, url string) bool {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		log.Debug("Can not create Pulse endpoint probe:", err)
+		log.Error("Can not create Pulse endpoint probe:", err)
 		return false
 	}
 	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Debug("Pulse endpoint probe failed:", url, err)
+		log.Error("Pulse endpoint probe failed:", url, err)
 		return false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		log.Debug("Pulse endpoint probe returned:", url, resp.Status)
+		log.Error("Pulse endpoint probe returned:", url, resp.Status)
 		return false
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Debug("Can not read Pulse endpoint probe response:", err)
+		log.Error("Can not read Pulse endpoint probe response:", err)
 		return false
 	}
 	return len(body) > 0
