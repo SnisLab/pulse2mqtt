@@ -12,6 +12,11 @@ To use a configuration at a different path, set `PULSE2MQTT_CONFIG`:
 PULSE2MQTT_CONFIG=/config/settings.yaml ./pulse2mqtt
 ```
 
+The Pulse API can be selected with `service.pulse.version`. Use `legacy` for
+`data.json` and `metrics.json`, or `modern` for `node_data.json` and
+`node_metrics.json`. If omitted, the application probes the modern data
+endpoint once at startup and falls back to the legacy endpoint if necessary.
+
 ## Releases
 
 Every push and pull request targeting `main` runs the tests and validates the GoReleaser configuration. Every push to `main` additionally publishes an immutable release.

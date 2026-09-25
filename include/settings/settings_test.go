@@ -25,6 +25,7 @@ service:
     password: pulse-pass
     ip: 192.0.2.10
     node: 7
+    version: modern
     battery_profile: alkaline
   home_assistant:
     discovery: true
@@ -39,7 +40,7 @@ service:
 	if config.Service.Mqtt.Host != "mqtt.example" || config.Service.Mqtt.Port != 1883 {
 		t.Fatalf("unexpected MQTT settings: %+v", config.Service.Mqtt)
 	}
-	if config.Service.Pulse.Node != 7 || config.Service.Pulse.BatteryProfile != "alkaline" {
+	if config.Service.Pulse.Node != 7 || config.Service.Pulse.Version != "modern" || config.Service.Pulse.BatteryProfile != "alkaline" {
 		t.Fatalf("unexpected Pulse settings: %+v", config.Service.Pulse)
 	}
 	if !config.Service.HomeAssistant.Discovery || config.Service.HomeAssistant.DeviceID != "pulse-7" {
@@ -74,6 +75,7 @@ func TestConfigValidate(t *testing.T) {
 		{name: "missing Pulse user", setup: func(config *Config) { config.Service.Pulse.User = "" }},
 		{name: "missing Pulse password", setup: func(config *Config) { config.Service.Pulse.Password = "" }},
 		{name: "invalid Pulse node", setup: func(config *Config) { config.Service.Pulse.Node = 0 }},
+		{name: "unsupported Pulse version", setup: func(config *Config) { config.Service.Pulse.Version = "v2" }},
 		{name: "unsupported battery profile", setup: func(config *Config) { config.Service.Pulse.BatteryProfile = "lithium" }},
 	}
 

@@ -14,6 +14,7 @@ import (
 	"pulse2mqtt/include/data"
 	"pulse2mqtt/include/metrics"
 	"pulse2mqtt/include/mqtt"
+	"pulse2mqtt/include/pulse"
 	"pulse2mqtt/include/settings"
 	"pulse2mqtt/include/vars"
 	"pulse2mqtt/include/version"
@@ -84,6 +85,9 @@ func main() {
 	}
 
 	settings.LogConfig(settings.Load)
+	if err := pulse.Initialize(); err != nil {
+		log.Fatal("Can not detect Pulse API:", err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

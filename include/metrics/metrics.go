@@ -6,11 +6,11 @@ import (
 	"math"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	log "github.com/DjSni/go-log"
 
+	"pulse2mqtt/include/pulse"
 	"pulse2mqtt/include/settings"
 )
 
@@ -39,12 +39,6 @@ type Metrics struct {
 		MeterReadingCountRecv int    `json:"meter_reading_count_recv"`
 		NodeVersion           string `json:"node_version"`
 	} `json:"hub_attachments"`
-}
-
-var metricsEndpoint struct {
-	sync.Mutex
-	key  string
-	path string
 }
 
 func batteryVoltageRange(profile string) (emptyVoltage float64, fullVoltage float64, ok bool) {
@@ -96,18 +90,7 @@ func GetMetrics() Metrics {
 	var result Metrics
 	baseURL := "http://" + settings.Load.Service.Pulse.IP
 	query := "?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
-	metricsEndpoint.Lock()
-	defer metricsEndpoint.Unlock()
-	key := baseURL + query
-	if metricsEndpoint.key != key {
-		metricsEndpoint.key = key
-		metricsEndpoint.path = ""
-	}
-	path := metricsEndpoint.path
-	if path == "" {
-		path = "/metrics.json"
-	}
-	req, err := http.NewRequest(http.MethodGet, baseURL+path+query, nil)
+	req, err := http.NewRequest(http.MethodGet, baseURL+pulse.MetricsPath()+query, nil)
 	if err != nil {
 		log.Error("Can not create metrics request:", err)
 		return result
@@ -119,43 +102,6 @@ func GetMetrics() Metrics {
 	if err != nil {
 		log.Error("No response from request:", err)
 		return result
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		resp.Body.Close()
-		if path != "/metrics.json" {
-			path = "/metrics.json"
-			metricsEndpoint.path = ""
-			req, err = http.NewRequest(http.MethodGet, baseURL+"/metrics.json"+query, nil)
-			if err != nil {
-				log.Error("Can not create metrics request:", err)
-				return result
-			}
-			req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
-			resp, err = client.Do(req)
-			if err != nil {
-				log.Error("No response from request:", err)
-				return result
-			}
-		}
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		resp.Body.Close()
-		req, err = http.NewRequest(http.MethodGet, baseURL+"/node_metrics.json"+query, nil)
-		if err != nil {
-			log.Error("Can not create fallback metrics request:", err)
-			return result
-		}
-		req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
-		resp, err = client.Do(req)
-		if err != nil {
-			log.Error("No response from fallback metrics request:", err)
-			return result
-		}
-		if resp.StatusCode == http.StatusOK {
-			metricsEndpoint.path = "/node_metrics.json"
-		}
-	} else if resp.StatusCode == http.StatusOK && metricsEndpoint.path == "" {
-		metricsEndpoint.path = path
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

@@ -30,6 +30,7 @@ type Config struct {
 			Password       string `yaml:"password"`
 			IP             string `yaml:"ip"`
 			Node           int    `yaml:"node"`
+			Version        string `yaml:"version"`
 			BatteryProfile string `yaml:"battery_profile"`
 		} `yaml:"pulse"`
 		HomeAssistant struct {
@@ -47,6 +48,7 @@ func LogConfig(config Config) {
 	log.Debug(" Password set:	", config.Service.Pulse.Password != "")
 	log.Debug(" IP:		", config.Service.Pulse.IP)
 	log.Debug(" Node:		", config.Service.Pulse.Node)
+	log.Debug(" Version: ", config.Service.Pulse.Version)
 	log.Debug(" Battery profile: ", config.Service.Pulse.BatteryProfile)
 	log.Debug("MQTT Settings:")
 	log.Debug(" Host:		", config.Service.Mqtt.Host)
@@ -85,6 +87,9 @@ func (config Config) Validate() error {
 	}
 	if config.Service.Pulse.Node < 1 {
 		return fmt.Errorf("Pulse node must be greater than 0")
+	}
+	if version := strings.ToLower(strings.TrimSpace(config.Service.Pulse.Version)); version != "" && version != "legacy" && version != "modern" {
+		return fmt.Errorf("unsupported Pulse version %q (use legacy or modern)", config.Service.Pulse.Version)
 	}
 	if profile := strings.TrimSpace(config.Service.Pulse.BatteryProfile); profile != "" && !isSupportedBatteryProfile(profile) {
 		return fmt.Errorf("unsupported battery profile %q", profile)

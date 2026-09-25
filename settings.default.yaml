@@ -12,6 +12,7 @@ service:
     password: ABC1-23DE
     ip: ip_or_hostname
     node: 1
+    # version: legacy or modern; omit to detect automatically
     battery_profile: regulated_1_5v
   home_assistant:
     discovery: false
