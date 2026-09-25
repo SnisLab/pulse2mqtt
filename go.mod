@@ -11,8 +11,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace github.com/DjSni/go-sml => ../../djsni/go-sml
-
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	golang.org/x/net v0.57.0 // indirect
