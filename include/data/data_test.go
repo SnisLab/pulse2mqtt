@@ -1,6 +1,7 @@
 package data
 
 import (
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"pulse2mqtt/include/pulse"
 	"pulse2mqtt/include/settings"
 )
+
+const nodeDataHex = "1B1B1B1B0101010176050DE7EB4C62006200726301017601010504A2A3C40B0A0149534B000516465C7262016504A2A20862016335990076050DE7EB4D620062007263070177010B0A0149534B000516465C070100620AFFFF7262016504A2A20875770701004032010101010101010449534B0177070100600100FF010101010B0A0149534B000516465C0177070100010800FF650008010401621E52FF6503FEC26A0177070100020800FF0101621E52FF62000177070100100700FF0101621B520053017F01010163BB0E0076050DE7EB4E6200620072630201710163F1A9001B1B1B1B1A00F61F"
 
 func TestOctet2Obis(t *testing.T) {
 	got := Octet2Obis(sml.OctetString{1, 0, 1, 8, 0, 255})
@@ -136,7 +139,11 @@ func TestGetDataIgnoresInvalidSML(t *testing.T) {
 }
 
 func TestModernPulseFrameUsesCommonParser(t *testing.T) {
-	frame, err := os.ReadFile(`S:\node_data.bin`)
+	hexData, err := os.ReadFile("testdata/node_data.hex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame, err := hex.DecodeString(strings.TrimSpace(string(hexData)))
 	if err != nil {
 		t.Fatal(err)
 	}
