@@ -95,3 +95,37 @@ func TestGetMetricsUsesBasicAuth(t *testing.T) {
 		t.Errorf("unexpected battery voltage: got %f, want %f", got, want)
 	}
 }
+
+func TestGetMetricsFallsBackToNodeMetricsEndpoint(t *testing.T) {
+	originalSettings := settings.Load
+	t.Cleanup(func() { settings.Load = originalSettings })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/metrics.json" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path != "/node_metrics.json" {
+			t.Fatalf("unexpected fallback path: %s", r.URL.Path)
+		}
+		username, password, ok := r.BasicAuth()
+		if !ok || username != "pulse-user" || password != "pulse-password" {
+			t.Errorf("unexpected basic auth: user=%q password=%q ok=%t", username, password, ok)
+		}
+		if got, want := r.URL.Query().Get("node_id"), "7"; got != want {
+			t.Errorf("unexpected node ID: got %q, want %q", got, want)
+		}
+		_, _ = w.Write([]byte(`{"node_status":{"battery_voltage":2.98779}}`))
+	}))
+	defer server.Close()
+
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	settings.Load.Service.Pulse.User = "pulse-user"
+	settings.Load.Service.Pulse.Password = "pulse-password"
+	settings.Load.Service.Pulse.Node = 7
+
+	result := GetMetrics()
+	if got, want := result.NodeStatus.NodeBatteryVoltage, 2.98779; got != want {
+		t.Fatalf("unexpected battery voltage: got %f, want %f", got, want)
+	}
+}

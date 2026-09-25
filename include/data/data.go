@@ -99,8 +99,9 @@ func PrintListEntry(entry sml.ListEntry, result *Data) {
 // GetData retrieves the data from the specified URL and parses the response.
 func GetData() Data {
 	var result Data
-	buildURL := "http://" + settings.Load.Service.Pulse.IP + "/data.json?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
-	req, err := http.NewRequest(http.MethodGet, buildURL, nil)
+	baseURL := "http://" + settings.Load.Service.Pulse.IP
+	query := "?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/data.json"+query, nil)
 	if err != nil {
 		log.Error("Can not create data request:", err)
 		return result
@@ -112,6 +113,20 @@ func GetData() Data {
 	if err != nil {
 		log.Error("No response from request:", err)
 		return result
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
+		req, err = http.NewRequest(http.MethodGet, baseURL+"/node_data.json"+query, nil)
+		if err != nil {
+			log.Error("Can not create fallback data request:", err)
+			return result
+		}
+		req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
+		resp, err = client.Do(req)
+		if err != nil {
+			log.Error("No response from fallback data request:", err)
+			return result
+		}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

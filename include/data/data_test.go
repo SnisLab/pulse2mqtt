@@ -96,6 +96,37 @@ func TestGetDataUsesBasicAuthAndNodeID(t *testing.T) {
 	GetData()
 }
 
+func TestGetDataFallsBackToNodeDataEndpoint(t *testing.T) {
+	originalSettings := settings.Load
+	t.Cleanup(func() { settings.Load = originalSettings })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/data.json" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path != "/node_data.json" {
+			t.Fatalf("unexpected fallback path: %s", r.URL.Path)
+		}
+		username, password, ok := r.BasicAuth()
+		if !ok || username != "pulse-user" || password != "pulse-password" {
+			t.Errorf("unexpected basic auth: user=%q password=%q ok=%t", username, password, ok)
+		}
+		if got, want := r.URL.Query().Get("node_id"), "7"; got != want {
+			t.Errorf("unexpected node ID: got %q, want %q", got, want)
+		}
+		_, _ = w.Write(make([]byte, 16))
+	}))
+	defer server.Close()
+
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	settings.Load.Service.Pulse.User = "pulse-user"
+	settings.Load.Service.Pulse.Password = "pulse-password"
+	settings.Load.Service.Pulse.Node = 7
+
+	GetData()
+}
+
 func TestGetDataIgnoresFailedResponse(t *testing.T) {
 	originalSettings := settings.Load
 	t.Cleanup(func() {
