@@ -100,14 +100,17 @@ func TestGetDataFallsBackToNodeDataEndpoint(t *testing.T) {
 	originalSettings := settings.Load
 	t.Cleanup(func() { settings.Load = originalSettings })
 
+	var oldRequests, newRequests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/data.json" {
+			oldRequests++
 			http.NotFound(w, r)
 			return
 		}
 		if r.URL.Path != "/node_data.json" {
 			t.Fatalf("unexpected fallback path: %s", r.URL.Path)
 		}
+		newRequests++
 		username, password, ok := r.BasicAuth()
 		if !ok || username != "pulse-user" || password != "pulse-password" {
 			t.Errorf("unexpected basic auth: user=%q password=%q ok=%t", username, password, ok)
@@ -125,6 +128,10 @@ func TestGetDataFallsBackToNodeDataEndpoint(t *testing.T) {
 	settings.Load.Service.Pulse.Node = 7
 
 	GetData()
+	GetData()
+	if oldRequests != 1 || newRequests != 2 {
+		t.Fatalf("unexpected endpoint requests: old=%d new=%d", oldRequests, newRequests)
+	}
 }
 
 func TestGetDataIgnoresFailedResponse(t *testing.T) {

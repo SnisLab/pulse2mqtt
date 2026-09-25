@@ -100,14 +100,17 @@ func TestGetMetricsFallsBackToNodeMetricsEndpoint(t *testing.T) {
 	originalSettings := settings.Load
 	t.Cleanup(func() { settings.Load = originalSettings })
 
+	var oldRequests, newRequests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/metrics.json" {
+			oldRequests++
 			http.NotFound(w, r)
 			return
 		}
 		if r.URL.Path != "/node_metrics.json" {
 			t.Fatalf("unexpected fallback path: %s", r.URL.Path)
 		}
+		newRequests++
 		username, password, ok := r.BasicAuth()
 		if !ok || username != "pulse-user" || password != "pulse-password" {
 			t.Errorf("unexpected basic auth: user=%q password=%q ok=%t", username, password, ok)
@@ -127,5 +130,12 @@ func TestGetMetricsFallsBackToNodeMetricsEndpoint(t *testing.T) {
 	result := GetMetrics()
 	if got, want := result.NodeStatus.NodeBatteryVoltage, 2.98779; got != want {
 		t.Fatalf("unexpected battery voltage: got %f, want %f", got, want)
+	}
+	result = GetMetrics()
+	if got, want := result.NodeStatus.NodeBatteryVoltage, 2.98779; got != want {
+		t.Fatalf("unexpected battery voltage: got %f, want %f", got, want)
+	}
+	if oldRequests != 1 || newRequests != 2 {
+		t.Fatalf("unexpected endpoint requests: old=%d new=%d", oldRequests, newRequests)
 	}
 }

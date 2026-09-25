@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	log "github.com/DjSni/go-log"
@@ -24,6 +25,12 @@ type Data struct {
 			Consume string
 		}
 	}
+}
+
+var dataEndpoint struct {
+	sync.Mutex
+	key  string
+	path string
 }
 
 // PrintMessage prints the SML message.
@@ -101,7 +108,18 @@ func GetData() Data {
 	var result Data
 	baseURL := "http://" + settings.Load.Service.Pulse.IP
 	query := "?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/data.json"+query, nil)
+	dataEndpoint.Lock()
+	defer dataEndpoint.Unlock()
+	key := baseURL + query
+	if dataEndpoint.key != key {
+		dataEndpoint.key = key
+		dataEndpoint.path = ""
+	}
+	path := dataEndpoint.path
+	if path == "" {
+		path = "/data.json"
+	}
+	req, err := http.NewRequest(http.MethodGet, baseURL+path+query, nil)
 	if err != nil {
 		log.Error("Can not create data request:", err)
 		return result
@@ -116,6 +134,24 @@ func GetData() Data {
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		resp.Body.Close()
+		if path != "/data.json" {
+			path = "/data.json"
+			dataEndpoint.path = ""
+			req, err = http.NewRequest(http.MethodGet, baseURL+"/data.json"+query, nil)
+			if err != nil {
+				log.Error("Can not create data request:", err)
+				return result
+			}
+			req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
+			resp, err = client.Do(req)
+			if err != nil {
+				log.Error("No response from request:", err)
+				return result
+			}
+		}
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
 		req, err = http.NewRequest(http.MethodGet, baseURL+"/node_data.json"+query, nil)
 		if err != nil {
 			log.Error("Can not create fallback data request:", err)
@@ -127,6 +163,11 @@ func GetData() Data {
 			log.Error("No response from fallback data request:", err)
 			return result
 		}
+		if resp.StatusCode == http.StatusOK {
+			dataEndpoint.path = "/node_data.json"
+		}
+	} else if resp.StatusCode == http.StatusOK && dataEndpoint.path == "" {
+		dataEndpoint.path = path
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
