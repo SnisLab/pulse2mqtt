@@ -138,8 +138,12 @@ func GetData() Data {
 		log.Error(" ")
 		log.Error(" ")
 	} else {
-		// parse without escape sequence/ begin/end marker
-		messages, err := sml.FileParse(body[8 : len(body)-8])
+		payload := body[8 : len(body)-8]
+		if pulse.DataPath() == "/node_data.json" {
+			// The modern endpoint returns the SML stream without the legacy framing.
+			payload = body
+		}
+		messages, err := sml.FileParse(payload)
 		if err != nil {
 			log.Error("Parse error:", err)
 			return result
