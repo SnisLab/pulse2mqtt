@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.4.23
+
+### Changed
+
+- refactor: separate legacy and modern Pulse paths (b229545)
+
+
 ## 0.5.3.22
 
 - Maintenance release.
