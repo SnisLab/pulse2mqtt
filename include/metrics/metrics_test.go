@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"pulse2mqtt/include/pulse"
 	"pulse2mqtt/include/settings"
 	"strings"
 	"testing"
@@ -31,6 +32,33 @@ func TestMetricsNodeStatusJSONFields(t *testing.T) {
 	}
 	if got.NodeStatus.NodeAvgRssi != -56.213547 {
 		t.Errorf("unexpected average RSSI: %f", got.NodeStatus.NodeAvgRssi)
+	}
+}
+
+func TestModernMetricsJSONFields(t *testing.T) {
+	body := []byte(`{
+		"node": {
+			"node_version": 42,
+			"battery_voltage": 3.012,
+			"temperature": 24.5,
+			"avg_rssi": -49.0,
+			"avg_lqi": 91.0,
+			"node_uptime": 1234,
+			"meter_msg_count_sent": 12
+		},
+		"ir": {"acmp_rx_autolevel_9600": 133},
+		"hub": {"meter_msg_count_received": 95}
+	}`)
+
+	var got Metrics
+	if err := decodeModernMetrics(body, &got); err != nil {
+		t.Fatalf("could not unmarshal modern metrics: %v", err)
+	}
+	if got.NodeStatus.NodeBatteryVoltage != 3.012 || got.NodeStatus.NodeTemperature != 24.5 || got.NodeStatus.NodeAvgRssi != -49 || got.NodeStatus.NodeAvgLqi != 91 {
+		t.Fatalf("modern node metrics were not mapped: %+v", got.NodeStatus)
+	}
+	if got.NodeStatus.MeterMsgCountSent != 12 || got.NodeStatus.NodeUptimeMs != 1234 || got.HubAttachments.NodeVersion != "42" || got.NodeStatus.AcmpRxAutolevel9600 != 133 {
+		t.Fatalf("modern counters/version were not mapped: %+v / %q", got.NodeStatus, got.HubAttachments.NodeVersion)
 	}
 }
 
@@ -93,5 +121,33 @@ func TestGetMetricsUsesBasicAuth(t *testing.T) {
 
 	if got, want := result.NodeStatus.NodeBatteryVoltage, 2.98779; got != want {
 		t.Errorf("unexpected battery voltage: got %f, want %f", got, want)
+	}
+}
+
+func TestGetModernMetricsUsesModernEndpoint(t *testing.T) {
+	originalSettings := settings.Load
+	t.Cleanup(func() { settings.Load = originalSettings })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/node_metrics.json" {
+			t.Errorf("unexpected endpoint: %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"node":{"node_version":0,"battery_voltage":3.02,"temperature":20.35,"avg_rssi":-56.27,"avg_lqi":205.64,"node_uptime":39377562,"meter_msg_count_sent":12928,"meter_pkg_count_sent":15524},"ir":{"acmp_rx_autolevel_9600":133},"hub":{"meter_pkg_count_received":5628,"meter_msg_count_received":4639},"packet_delivery_rate":95.8}`))
+	}))
+	defer server.Close()
+
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	settings.Load.Service.Pulse.Node = 1
+	settings.Load.Service.Pulse.Version = "modern"
+	if err := pulse.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	result := GetMetrics()
+	if result.NodeStatus.NodeBatteryVoltage != 3.02 || result.NodeStatus.NodeTemperature != 20.35 || result.NodeStatus.NodeAvgRssi != -56.27 {
+		t.Fatalf("modern metrics were not read: %+v", result.NodeStatus)
+	}
+	if result.NodeStatus.NodeUptimeMs != 39377562 || result.HubAttachments.MeterPkgCountRecv != 5628 {
+		t.Fatalf("modern counters were not read: %+v / %+v", result.NodeStatus, result.HubAttachments)
 	}
 }
