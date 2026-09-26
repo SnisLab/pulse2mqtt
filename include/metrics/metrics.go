@@ -2,16 +2,8 @@ package metrics
 
 import (
 	"encoding/json"
-	"io"
 	"math"
-	"net/http"
-	"strconv"
-	"time"
-
-	log "github.com/DjSni/go-log"
-
 	"pulse2mqtt/include/pulse"
-	"pulse2mqtt/include/settings"
 )
 
 type Metrics struct {
@@ -85,47 +77,9 @@ func PrettyPrint(i interface{}) string {
 	return string(s)
 }
 
-// GetMetrics retrieves the metrics from the specified URL and parses the response.
 func GetMetrics() Metrics {
-	var result Metrics
-	baseURL := "http://" + settings.Load.Service.Pulse.IP
-	query := "?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
-	req, err := http.NewRequest(http.MethodGet, baseURL+pulse.MetricsPath()+query, nil)
-	if err != nil {
-		log.Error("Can not create metrics request:", err)
-		return result
+	if pulse.CurrentMode() == pulse.ModeModern {
+		return getModernMetrics()
 	}
-	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error("No response from request:", err)
-		return result
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		log.Error("Metrics request returned:", resp.Status)
-		return result
-	}
-	// response body is []byte
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error("Can not read metrics response:", err)
-		return result
-	}
-
-	// Parse []byte to go struct pointer
-	if err := json.Unmarshal(body, &result); err != nil {
-		log.Error("Can not unmarshal metrics JSON:", err)
-		return result
-	}
-
-	log.Debug("NodeBatteryVoltage:", result.NodeStatus.NodeBatteryVoltage)
-	log.Debug("NodeTemperature:", result.NodeStatus.NodeTemperature)
-	log.Debug("NodeAvgRssi:", result.NodeStatus.NodeAvgRssi)
-	log.Debug("MeterMsgCountSent:", result.NodeStatus.MeterMsgCountSent)
-	log.Debug("MeterPkgCountSent:", result.NodeStatus.MeterPkgCountSent)
-	log.Debug("NodeVersion:", result.HubAttachments.NodeVersion)
-	return result
+	return getLegacyMetrics()
 }

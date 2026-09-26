@@ -1,20 +1,12 @@
 package data
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"io"
 	"math"
-	"net/http"
-	"strconv"
-	"time"
 
-	log "github.com/DjSni/go-log"
 	sml "github.com/DjSni/go-sml"
 
 	"pulse2mqtt/include/pulse"
-	"pulse2mqtt/include/settings"
 )
 
 type Data struct {
@@ -99,72 +91,19 @@ func PrintListEntry(entry sml.ListEntry, result *Data) {
 	}
 }
 
-func parseSML(body []byte) ([]sml.Message, error) {
-	frame, err := sml.TransportRead(bufio.NewReader(bytes.NewReader(body)))
-	if err != nil {
-		return nil, err
-	}
-	if len(frame) < 16 {
-		return nil, fmt.Errorf("SML transport frame too short: %d", len(frame))
-	}
-	return sml.FileParse(frame[8 : len(frame)-8])
-}
-
-// GetData retrieves the data from the specified URL and parses the response.
-func GetData() Data {
+func dataFromMessages(messages []sml.Message) Data {
 	var result Data
-	baseURL := "http://" + settings.Load.Service.Pulse.IP
-	query := "?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
-	req, err := http.NewRequest(http.MethodGet, baseURL+pulse.DataPath()+query, nil)
-	if err != nil {
-		log.Error("Can not create data request:", err)
-		return result
-	}
-	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error("No response from request:", err)
-		return result
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		log.Error("Data request returned:", resp.Status)
-		return result
-	}
-	// response body is []byte
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error("Get no body -> ", err)
-		return result
-	}
-
-	if body == nil {
-		log.Error("No body found")
-		log.Error(" ")
-		log.Error(" ")
-	} else if len(body) < 16 {
-		log.Error(" ")
-		log.Error("Body len is", len(body))
-		log.Error("Body:", body)
-		log.Error(" ")
-		log.Error(" ")
-	} else {
-		messages, err := parseSML(body)
-		if err != nil {
-			log.Error("Parse error:", err)
-			return result
+	for _, msg := range messages {
+		if msg.MessageBody.Tag == sml.MESSAGEGETLISTRESPONSE {
+			PrintMessage(msg, &result)
 		}
-		for _, msg := range messages {
-			if msg.MessageBody.Tag == sml.MESSAGEGETLISTRESPONSE {
-				PrintMessage(msg, &result)
-			}
-		}
-
-		log.Debug("Stromverbrauch:", result.NodeValue.Total.Consume)
-		log.Debug("Stromeinspeißung:", result.NodeValue.Total.Feed)
-		log.Debug("Aktueller verbrauch:", result.NodeValue.Current.Consume)
 	}
 	return result
+}
+
+func GetData() Data {
+	if pulse.CurrentMode() == pulse.ModeModern {
+		return getModernData()
+	}
+	return getLegacyData()
 }

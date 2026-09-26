@@ -40,14 +40,14 @@ func Initialize() error {
 	query := "?node_id=" + fmt.Sprint(settings.Load.Service.Pulse.Node)
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	if probe(client, baseURL+"/node_data.json"+query) {
+	if probe(client, baseURL+ModernDataPath()+query) {
 		state.Lock()
 		state.mode = ModeModern
 		state.Unlock()
 		log.Info("Detected modern Pulse API")
 		return nil
 	}
-	if probe(client, baseURL+"/data.json"+query) {
+	if probe(client, baseURL+LegacyDataPath()+query) {
 		state.Lock()
 		state.mode = ModeLegacy
 		state.Unlock()
@@ -82,20 +82,8 @@ func probe(client *http.Client, url string) bool {
 	return len(body) > 0
 }
 
-func DataPath() string {
+func CurrentMode() Mode {
 	state.RLock()
 	defer state.RUnlock()
-	if state.mode == ModeModern {
-		return "/node_data.json"
-	}
-	return "/data.json"
-}
-
-func MetricsPath() string {
-	state.RLock()
-	defer state.RUnlock()
-	if state.mode == ModeModern {
-		return "/node_metrics.json"
-	}
-	return "/metrics.json"
+	return state.mode
 }

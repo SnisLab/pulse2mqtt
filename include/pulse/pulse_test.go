@@ -35,8 +35,8 @@ func TestInitializeAutoSelectsModernEndpoint(t *testing.T) {
 	if err := Initialize(); err != nil {
 		t.Fatalf("Initialize() failed: %v", err)
 	}
-	if DataPath() != "/node_data.json" || MetricsPath() != "/node_metrics.json" {
-		t.Fatalf("modern endpoints not selected: data=%s metrics=%s", DataPath(), MetricsPath())
+	if CurrentMode() != ModeModern || ModernDataPath() != "/node_data.json" || ModernMetricsPath() != "/node_metrics.json" {
+		t.Fatalf("modern mode not selected")
 	}
 	if modernRequests != 1 || legacyRequests != 0 {
 		t.Fatalf("unexpected probe requests: modern=%d legacy=%d", modernRequests, legacyRequests)
@@ -65,8 +65,8 @@ func TestInitializeAutoFallsBackToLegacyEndpoint(t *testing.T) {
 	if err := Initialize(); err != nil {
 		t.Fatalf("Initialize() failed: %v", err)
 	}
-	if DataPath() != "/data.json" || MetricsPath() != "/metrics.json" {
-		t.Fatalf("legacy endpoints not selected: data=%s metrics=%s", DataPath(), MetricsPath())
+	if CurrentMode() != ModeLegacy || LegacyDataPath() != "/data.json" || LegacyMetricsPath() != "/metrics.json" {
+		t.Fatalf("legacy mode not selected")
 	}
 	if len(paths) != 2 || paths[0] != "/node_data.json" || paths[1] != "/data.json" {
 		t.Fatalf("unexpected probe order: %v", paths)
@@ -85,7 +85,7 @@ func TestInitializeUsesConfiguredVersion(t *testing.T) {
 	if err := Initialize(); err != nil {
 		t.Fatalf("Initialize() failed: %v", err)
 	}
-	if DataPath() != "/node_data.json" || MetricsPath() != "/node_metrics.json" {
+	if CurrentMode() != ModeModern {
 		t.Fatalf("configured modern endpoints not selected")
 	}
 }
