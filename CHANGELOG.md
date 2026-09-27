@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.6.26
+
+### Fixed
+
+- fix: retry invalid modern Pulse data (6f80aa4)
+
+
 ## 0.5.5.25
 
 - Maintenance release.
