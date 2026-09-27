@@ -21,6 +21,10 @@ type Data struct {
 	}
 }
 
+func (d Data) Valid() bool {
+	return d.NodeValue.Total.Consume != "" || d.NodeValue.Total.Feed != "" || d.NodeValue.Current.Consume != ""
+}
+
 // PrintMessage prints the SML message.
 func PrintMessage(msg sml.Message, result *Data) {
 	list, ok := msg.MessageBody.Data.(sml.GetListResponse)

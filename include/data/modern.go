@@ -17,35 +17,48 @@ import (
 )
 
 func getModernData() Data {
+	for attempt := 0; attempt < 2; attempt++ {
+		result, err := fetchModernData()
+		if err == nil {
+			return result
+		}
+		if attempt == 0 {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		log.Error("Modern data request failed after retry:", err)
+	}
+	return Data{}
+}
+
+func fetchModernData() (Data, error) {
 	baseURL := "http://" + settings.Load.Service.Pulse.IP
 	query := "?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
 	req, err := http.NewRequest(http.MethodGet, baseURL+pulse.ModernDataPath()+query, nil)
 	if err != nil {
-		log.Error("Can not create modern data request:", err)
-		return Data{}
+		return Data{}, fmt.Errorf("can not create modern data request: %w", err)
 	}
 	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
-		log.Error("No response from modern data request:", err)
-		return Data{}
+		return Data{}, fmt.Errorf("no response from modern data request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		log.Error("Modern data request returned:", resp.Status)
-		return Data{}
+		return Data{}, fmt.Errorf("modern data request returned: %s", resp.Status)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil || len(body) < 16 {
-		log.Error("Invalid modern data response:", err)
-		return Data{}
+		if err == nil {
+			err = fmt.Errorf("response too short: %d bytes", len(body))
+		}
+		return Data{}, fmt.Errorf("invalid modern data response: %w", err)
 	}
 	messages, err := parseSML(body)
 	if err != nil {
-		log.Error("Modern SML parse error:", err)
-		return Data{}
+		return Data{}, fmt.Errorf("modern SML parse error: %w", err)
 	}
-	return dataFromMessages(messages)
+	return dataFromMessages(messages), nil
 }
 
 func parseSML(body []byte) ([]sml.Message, error) {

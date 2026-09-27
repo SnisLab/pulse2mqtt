@@ -184,3 +184,52 @@ func TestModernPulseFrameUsesCommonParser(t *testing.T) {
 		t.Fatalf("modern frame produced empty values: consume=%q feed=%q", result.NodeValue.Total.Consume, result.NodeValue.Total.Feed)
 	}
 }
+
+func TestModernDataRetriesAfterParseError(t *testing.T) {
+	hexData, err := os.ReadFile("testdata/node_data.hex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame, err := hex.DecodeString(strings.TrimSpace(string(hexData)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	originalSettings := settings.Load
+	t.Cleanup(func() { settings.Load = originalSettings })
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests == 1 {
+			_, _ = w.Write([]byte("invalid"))
+			return
+		}
+		_, _ = w.Write(frame)
+	}))
+	defer server.Close()
+	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
+	settings.Load.Service.Pulse.Node = 1
+	settings.Load.Service.Pulse.Version = "modern"
+	if err := pulse.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	result := GetData()
+	if requests != 2 {
+		t.Fatalf("made %d requests, want 2", requests)
+	}
+	if !result.Valid() {
+		t.Fatal("retry did not return valid data")
+	}
+}
+
+func TestDataValid(t *testing.T) {
+	if (Data{}).Valid() {
+		t.Fatal("empty data reported as valid")
+	}
+	var result Data
+	result.NodeValue.Current.Consume = "1 W"
+	if !result.Valid() {
+		t.Fatal("data with a measurement reported as invalid")
+	}
+}

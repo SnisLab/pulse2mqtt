@@ -55,7 +55,12 @@ func doData(ctx context.Context, MqttClient ex_mqtt.Client) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
-		mqtt.SendData(MqttClient, data.GetData())
+		result := data.GetData()
+		if result.Valid() {
+			mqtt.SendData(MqttClient, result)
+		} else {
+			log.Debug("Skipping invalid Pulse data result")
+		}
 		select {
 		case <-ctx.Done():
 			return
