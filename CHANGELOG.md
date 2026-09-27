@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.8.27
+
+### Added
+
+- feat: use Pulse WebSocket data stream (dd88fee)
+
+### Fixed
+
+- fix: serialize Pulse HTTP requests (27aa774)
+
+
 ## 0.5.6.26
 
 ### Fixed
