@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"os"
 	"os/signal"
@@ -60,10 +59,6 @@ func doMetrics(ctx context.Context, MqttClient ex_mqtt.Client) {
 // doData retrieves and sends data every second.
 func doData(ctx context.Context, MqttClient ex_mqtt.Client) {
 	log.Info("run Data")
-	if pulse.CurrentMode() == pulse.ModeModern {
-		doModernData(ctx, MqttClient)
-		return
-	}
 	doPollingData(ctx, MqttClient)
 }
 
@@ -81,32 +76,6 @@ func doPollingData(ctx context.Context, MqttClient ex_mqtt.Client) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-		}
-	}
-}
-
-func doModernData(ctx context.Context, MqttClient ex_mqtt.Client) {
-	for {
-		err := data.StreamModernData(ctx, func(result data.Data) {
-			if result.Valid() {
-				mqtt.SendData(MqttClient, result)
-			}
-		})
-		if ctx.Err() != nil {
-			return
-		}
-		if errors.Is(err, pulse.ErrWebSocketUnavailable) {
-			log.Info("Pulse WebSocket unavailable; falling back to HTTP polling")
-			doPollingData(ctx, MqttClient)
-			return
-		}
-		log.Error("Modern Pulse WebSocket stopped:", err)
-		timer := time.NewTimer(5 * time.Second)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return
-		case <-timer.C:
 		}
 	}
 }
