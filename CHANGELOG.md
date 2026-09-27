@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.9.28
+
+### Fixed
+
+- fix: keep modern data on HTTP polling (f119a3c)
+
+
 ## 0.5.8.27
 
 ### Added
