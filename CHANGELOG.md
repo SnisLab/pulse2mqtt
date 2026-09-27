@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.5.25
+
+- Maintenance release.
+
+
 ## 0.5.4.24
 
 - Maintenance release.
