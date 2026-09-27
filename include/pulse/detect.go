@@ -2,11 +2,8 @@ package pulse
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	log "github.com/DjSni/go-log"
 
@@ -38,16 +35,14 @@ func Initialize() error {
 
 	baseURL := "http://" + settings.Load.Service.Pulse.IP
 	query := "?node_id=" + fmt.Sprint(settings.Load.Service.Pulse.Node)
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	if probe(client, baseURL+ModernDataPath()+query) {
+	if probe(baseURL + ModernDataPath() + query) {
 		state.Lock()
 		state.mode = ModeModern
 		state.Unlock()
 		log.Info("Detected modern Pulse API")
 		return nil
 	}
-	if probe(client, baseURL+LegacyDataPath()+query) {
+	if probe(baseURL + LegacyDataPath() + query) {
 		state.Lock()
 		state.mode = ModeLegacy
 		state.Unlock()
@@ -57,29 +52,17 @@ func Initialize() error {
 	return fmt.Errorf("could not reach Pulse data endpoint (tried node_data.json and data.json)")
 }
 
-func probe(client *http.Client, url string) bool {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		log.Error("Can not create Pulse endpoint probe:", err)
-		return false
-	}
-	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
-	resp, err := client.Do(req)
+func probe(url string) bool {
+	resp, err := Get(url)
 	if err != nil {
 		log.Error("Pulse endpoint probe failed:", url, err)
 		return false
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != 200 {
 		log.Error("Pulse endpoint probe returned:", url, resp.Status)
 		return false
 	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error("Can not read Pulse endpoint probe response:", err)
-		return false
-	}
-	return len(body) > 0
+	return len(resp.Body) > 0
 }
 
 func CurrentMode() Mode {

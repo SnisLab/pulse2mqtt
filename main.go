@@ -37,6 +37,13 @@ func doKeepAlive(ctx context.Context) {
 // doMetrics retrieves and sends metrics data every 10 seconds.
 func doMetrics(ctx context.Context, MqttClient ex_mqtt.Client) {
 	log.Info("run Metrics")
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case <-ctx.Done():
+		timer.Stop()
+		return
+	case <-timer.C:
+	}
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {

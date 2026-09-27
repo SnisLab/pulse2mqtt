@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -34,27 +32,20 @@ func getModernData() Data {
 func fetchModernData() (Data, error) {
 	baseURL := "http://" + settings.Load.Service.Pulse.IP
 	query := "?node_id=" + strconv.Itoa(settings.Load.Service.Pulse.Node)
-	req, err := http.NewRequest(http.MethodGet, baseURL+pulse.ModernDataPath()+query, nil)
-	if err != nil {
-		return Data{}, fmt.Errorf("can not create modern data request: %w", err)
-	}
-	req.SetBasicAuth(settings.Load.Service.Pulse.User, settings.Load.Service.Pulse.Password)
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	resp, err := pulse.Get(baseURL + pulse.ModernDataPath() + query)
 	if err != nil {
 		return Data{}, fmt.Errorf("no response from modern data request: %w", err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != 200 {
 		return Data{}, fmt.Errorf("modern data request returned: %s", resp.Status)
 	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil || len(body) < 16 {
+	if len(resp.Body) < 16 {
 		if err == nil {
-			err = fmt.Errorf("response too short: %d bytes", len(body))
+			err = fmt.Errorf("response too short: %d bytes", len(resp.Body))
 		}
 		return Data{}, fmt.Errorf("invalid modern data response: %w", err)
 	}
-	messages, err := parseSML(body)
+	messages, err := parseSML(resp.Body)
 	if err != nil {
 		return Data{}, fmt.Errorf("modern SML parse error: %w", err)
 	}
