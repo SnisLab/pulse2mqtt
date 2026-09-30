@@ -1,4 +1,4 @@
 package version
 
 // Version is the current version of the pulse2mqtt.
-var Version = "0.5.9"
+var Version = "0.6.0"

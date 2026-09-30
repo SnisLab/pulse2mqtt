@@ -34,19 +34,27 @@ func TestListEntry2Float(t *testing.T) {
 		name   string
 		value  int64
 		scaler int8
+		typ    uint8
 		want   float64
 	}{
-		{name: "zero scaler uses application default", value: 12, scaler: 0, want: 120},
-		{name: "positive scaler", value: 12, scaler: 2, want: 1200},
-		{name: "negative scaler", value: 1234, scaler: -3, want: 1.234},
+		{name: "zero scaler uses application default", value: 12, scaler: 0, typ: sml.TYPEINTEGER, want: 120},
+		{name: "positive scaler", value: 12, scaler: 2, typ: sml.TYPEINTEGER, want: 1200},
+		{name: "negative scaler", value: 1234, scaler: -3, typ: sml.TYPEINTEGER, want: 1.234},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ListEntry2Float(sml.ListEntry{Scaler: tt.scaler, Value: sml.Value{DataInt: tt.value}}); got != tt.want {
+			if got := ListEntry2Float(sml.ListEntry{Scaler: tt.scaler, Value: sml.Value{Typ: tt.typ, DataInt: tt.value}}); got != tt.want {
 				t.Fatalf("ListEntry2Float() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestListEntry2FloatSupportsUnsigned64(t *testing.T) {
+	entry := sml.ListEntry{Scaler: -1, Value: sml.Value{Typ: sml.TYPEUNSIGNED, DataUnsigned: 12345}}
+	if got, want := ListEntry2Float(entry), 1234.5; got != want {
+		t.Fatalf("ListEntry2Float() = %v, want %v", got, want)
 	}
 }
 
@@ -139,7 +147,7 @@ func TestGetDataIgnoresInvalidSML(t *testing.T) {
 }
 
 func TestModernPulseFrameUsesCommonParser(t *testing.T) {
-	hexData, err := os.ReadFile("testdata/node_data.hex")
+	hexData, err := os.ReadFile("testdata/node_data_strict_valid.hex")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,8 +193,22 @@ func TestModernPulseFrameUsesCommonParser(t *testing.T) {
 	}
 }
 
-func TestModernDataRetriesAfterParseError(t *testing.T) {
+func TestModernPulseRejectsLegacyMalformedCapture(t *testing.T) {
 	hexData, err := os.ReadFile("testdata/node_data.hex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame, err := hex.DecodeString(strings.TrimSpace(string(hexData)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseSML(frame); err == nil {
+		t.Fatal("strict SML parser accepted the malformed historical Pulse capture")
+	}
+}
+
+func TestModernDataRetriesAfterParseError(t *testing.T) {
+	hexData, err := os.ReadFile("testdata/node_data_strict_valid.hex")
 	if err != nil {
 		t.Fatal(err)
 	}

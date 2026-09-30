@@ -26,7 +26,7 @@ func getLegacyData() Data {
 		log.Error("Invalid legacy data response:", err)
 		return Data{}
 	}
-	messages, err := sml.FileParse(resp.Body[8 : len(resp.Body)-8])
+	messages, err := sml.TransportParse(resp.Body)
 	if err != nil {
 		log.Error("Legacy SML parse error:", err)
 		return Data{}

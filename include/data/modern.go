@@ -1,8 +1,6 @@
 package data
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"strconv"
 	"time"
@@ -53,12 +51,5 @@ func fetchModernData() (Data, error) {
 }
 
 func parseSML(body []byte) ([]sml.Message, error) {
-	frame, err := sml.TransportRead(bufio.NewReader(bytes.NewReader(body)))
-	if err != nil {
-		return nil, err
-	}
-	if len(frame) < 16 {
-		return nil, fmt.Errorf("SML transport frame too short: %d", len(frame))
-	}
-	return sml.FileParse(frame[8 : len(frame)-8])
+	return sml.TransportParse(body)
 }

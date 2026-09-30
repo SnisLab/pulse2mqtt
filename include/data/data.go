@@ -53,7 +53,16 @@ func ListEntry2Float(entry sml.ListEntry) float64 {
 		scaler = int(entry.Scaler)
 	}
 
-	return float64(entry.Value.DataInt) * math.Pow10(scaler)
+	var value float64
+	switch entry.Value.Typ & sml.TYPEFIELD {
+	case sml.TYPEINTEGER:
+		value = float64(entry.Value.DataInt)
+	case sml.TYPEUNSIGNED:
+		value = float64(entry.Value.DataUnsigned)
+	default:
+		return 0
+	}
+	return value * math.Pow10(scaler)
 }
 
 // PrintListEntry prints a list entry.
