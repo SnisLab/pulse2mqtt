@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
@@ -204,6 +205,44 @@ func TestModernPulseRejectsLegacyMalformedCapture(t *testing.T) {
 	}
 	if _, err := parseSML(frame); err == nil {
 		t.Fatal("strict SML parser accepted the malformed historical Pulse capture")
+	}
+}
+
+func TestModernPulseSalvagesOnlyCRCValidGetListFromDamagedTransport(t *testing.T) {
+	hexData, err := os.ReadFile("testdata/node_data_strict_valid.hex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame, err := hex.DecodeString(strings.TrimSpace(string(hexData)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Model the observed bridge defect: bytes in the opening control message
+	// are zeroed, while the later GetList message and its message CRC survive.
+	damaged := append([]byte(nil), frame...)
+	damaged[13], damaged[14], damaged[15] = 0, 0, 0
+	before := append([]byte(nil), damaged...)
+
+	if _, err := sml.TransportParse(damaged); err == nil {
+		t.Fatal("strict parser accepted the damaged transport frame")
+	}
+	messages, recovered, err := parseSMLWithRecovery(damaged)
+	if err != nil {
+		t.Fatalf("CRC-valid GetList message was not recovered: %v", err)
+	}
+	if !recovered {
+		t.Fatal("expected recovery path to be reported")
+	}
+	if !bytes.Equal(damaged, before) {
+		t.Fatal("recovery modified the captured frame")
+	}
+	if len(messages) != 1 || messages[0].MessageBody.Tag != sml.MESSAGEGETLISTRESPONSE {
+		t.Fatalf("recovery returned %d messages, expected only the CRC-valid GetList response", len(messages))
+	}
+	result := dataFromMessages(messages)
+	if !result.Valid() {
+		t.Fatalf("recovered GetList response produced no values: %+v", result.NodeValue)
 	}
 }
 

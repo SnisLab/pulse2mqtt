@@ -17,6 +17,22 @@ The Pulse API can be selected with `service.pulse.version`. Use `legacy` for
 `node_metrics.json`. If omitted, the application probes the modern data
 endpoint once at startup and falls back to the legacy endpoint if necessary.
 
+## SML validation and damaged Pulse frames
+
+SML frames are parsed with `go-sml v1.0.0` using strict transport and message
+CRC validation. Modern Pulse firmware can occasionally return a frame with an
+invalid transport CRC even though its GetList measurement message is intact.
+For this specific error, Pulse2MQTT makes a copy of the frame, recalculates the
+outer transport CRC on that copy, and salvages only complete GetList messages
+that independently pass their SML message CRC and schema checks. The received
+bytes are never changed, and invalid messages are never repaired or published.
+If no valid GetList message can be recovered, that poll is discarded and the
+next poll retries normally.
+
+Run with `-v` to see when readings came from an individually CRC-valid message
+inside a transport-CRC-invalid frame. Such a recovered measurement has a valid
+message CRC, but the original transport frame remains invalid as a whole.
+
 ## Releases
 
 Every push and pull request targeting `main` runs the tests and validates the GoReleaser configuration. Every push to `main` additionally publishes an immutable release.
