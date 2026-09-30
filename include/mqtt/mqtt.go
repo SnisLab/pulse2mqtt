@@ -218,6 +218,134 @@ func buildDiscoveryConfig() ([]byte, error) {
 				EntityCategory:   "diagnostic",
 				EnabledByDefault: &disabled,
 			},
+			"invalid_meter_readings": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("invalid_meter_readings"),
+				Name:           "Invalid meter readings",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.InvalidMeterReadingsCount }}",
+				EntityCategory: "diagnostic",
+			},
+			"valid_meter_readings": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("valid_meter_readings"),
+				Name:           "Valid meter readings",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.ValidMeterReadingsCount }}",
+				EntityCategory: "diagnostic",
+			},
+			"meter_uart_errors_9600": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("meter_uart_errors_9600"),
+				Name:           "Meter UART errors (9600 baud)",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.MeterUARTErrorCount9600 }}",
+				EntityCategory: "diagnostic",
+			},
+			"meter_messages_delta": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("meter_messages_delta"),
+				Name:           "Meter messages (interval)",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.MeterMsgCountSentDelta }}",
+				EntityCategory: "diagnostic",
+			},
+			"meter_packages_delta": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("meter_packages_delta"),
+				Name:           "Meter packages (interval)",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.MeterPkgCountSentDelta }}",
+				EntityCategory: "diagnostic",
+			},
+			"hub_meter_messages_received": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("hub_meter_messages_received"),
+				Name:           "Hub meter messages received",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.HubMeterMsgCountReceived }}",
+				EntityCategory: "diagnostic",
+			},
+			"hub_meter_packages_received": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("hub_meter_packages_received"),
+				Name:           "Hub meter packages received",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.HubMeterPkgCountReceived }}",
+				EntityCategory: "diagnostic",
+			},
+			"hub_meter_messages_received_delta": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("hub_meter_messages_received_delta"),
+				Name:           "Hub meter messages (interval)",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.HubMeterMsgCountReceivedDelta }}",
+				EntityCategory: "diagnostic",
+			},
+			"hub_meter_packages_received_delta": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("hub_meter_packages_received_delta"),
+				Name:           "Hub meter packages (interval)",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.HubMeterPkgCountReceivedDelta }}",
+				EntityCategory: "diagnostic",
+			},
+			"hub_corrupt_readings_received": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("hub_corrupt_readings_received"),
+				Name:           "Hub corrupt readings (total)",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.HubCorruptReadingCountRecv }}",
+				EntityCategory: "diagnostic",
+			},
+			"hub_corrupt_readings_delta": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("hub_corrupt_readings_delta"),
+				Name:           "Hub corrupt readings (interval)",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.HubCorruptReadingCountReceivedDelta }}",
+				EntityCategory: "diagnostic",
+			},
+			"packet_delivery_rate": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("packet_delivery_rate"),
+				Name:           "Packet delivery rate",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.PacketDeliveryRate }}",
+				Unit:           "%",
+				EntityCategory: "diagnostic",
+			},
+			"node_available": {
+				Platform:       "binary_sensor",
+				UniqueID:       uniqueID("node_available"),
+				Name:           "Pulse node available",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ 'ON' if value_json.NodeAvailable else 'OFF' }}",
+				DeviceClass:    "connectivity",
+				EntityCategory: "diagnostic",
+			},
+			"last_data_age": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("last_data_age"),
+				Name:           "Age of last meter data",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.LastDataAgeSeconds }}",
+				DeviceClass:    "duration",
+				StateClass:     "measurement",
+				Unit:           "s",
+				EntityCategory: "diagnostic",
+			},
+			"wifi_rssi": {
+				Platform:       "sensor",
+				UniqueID:       uniqueID("wifi_rssi"),
+				Name:           "Bridge Wi-Fi RSSI",
+				StateTopic:     settings.Load.Service.Mqtt.Topics.Metrics,
+				ValueTemplate:  "{{ value_json.WiFiRSSI }}",
+				DeviceClass:    "signal_strength",
+				StateClass:     "measurement",
+				Unit:           "dBm",
+				EntityCategory: "diagnostic",
+			},
 		},
 	}
 	if _, ok := metrics.EstimateBatteryLevel(0, settings.Load.Service.Pulse.BatteryProfile); ok {
@@ -334,14 +462,29 @@ type Message struct {
 }
 
 type metricsMessage struct {
-	NodeBatteryVoltage string `json:"NodeBatteryVoltage"`
-	NodeBatteryLevel   *int   `json:"NodeBatteryLevel,omitempty"`
-	NodeTemperature    string `json:"NodeTemperature"`
-	NodeAvgRssi        string `json:"NodeAvgRssi"`
-	MeterMsgCountSent  string `json:"MeterMsgCountSent"`
-	MeterPkgCountSent  string `json:"MeterPkgCountSent"`
-	NodeVersion        string `json:"NodeVersion"`
-	Time               string `json:"Time"`
+	NodeBatteryVoltage                  string   `json:"NodeBatteryVoltage"`
+	NodeBatteryLevel                    *int     `json:"NodeBatteryLevel,omitempty"`
+	NodeTemperature                     string   `json:"NodeTemperature"`
+	NodeAvgRssi                         string   `json:"NodeAvgRssi"`
+	MeterMsgCountSent                   string   `json:"MeterMsgCountSent"`
+	MeterPkgCountSent                   string   `json:"MeterPkgCountSent"`
+	HubMeterMsgCountReceived            string   `json:"HubMeterMsgCountReceived"`
+	HubMeterPkgCountReceived            string   `json:"HubMeterPkgCountReceived"`
+	NodeVersion                         string   `json:"NodeVersion"`
+	InvalidMeterReadingsCount           *int     `json:"InvalidMeterReadingsCount,omitempty"`
+	ValidMeterReadingsCount             *int     `json:"ValidMeterReadingsCount,omitempty"`
+	MeterUARTErrorCount9600             *int     `json:"MeterUARTErrorCount9600,omitempty"`
+	MeterMsgCountSentDelta              *int     `json:"MeterMsgCountSentDelta,omitempty"`
+	MeterPkgCountSentDelta              *int     `json:"MeterPkgCountSentDelta,omitempty"`
+	HubMeterMsgCountReceivedDelta       *int     `json:"HubMeterMsgCountReceivedDelta,omitempty"`
+	HubMeterPkgCountReceivedDelta       *int     `json:"HubMeterPkgCountReceivedDelta,omitempty"`
+	HubCorruptReadingCountRecv          *int     `json:"HubCorruptReadingCountRecv,omitempty"`
+	HubCorruptReadingCountReceivedDelta *int     `json:"HubCorruptReadingCountReceivedDelta,omitempty"`
+	PacketDeliveryRate                  *float64 `json:"PacketDeliveryRate,omitempty"`
+	NodeAvailable                       *bool    `json:"NodeAvailable,omitempty"`
+	LastDataAgeSeconds                  *float64 `json:"LastDataAgeSeconds,omitempty"`
+	WiFiRSSI                            *int     `json:"WiFiRSSI,omitempty"`
+	Time                                string   `json:"Time"`
 }
 
 func currentMetricsMessage(result metrics.Metrics) metricsMessage {
@@ -354,15 +497,35 @@ func currentMetricsMessage(result metrics.Metrics) metricsMessage {
 		batteryLevelValue = &batteryLevel
 	}
 
+	var lastDataAgeSeconds *float64
+	if result.Diagnostics.LastDataAgeMs != nil {
+		age := float64(*result.Diagnostics.LastDataAgeMs) / 1000
+		lastDataAgeSeconds = &age
+	}
 	return metricsMessage{
-		NodeBatteryVoltage: fmt.Sprintf("%f", result.NodeStatus.NodeBatteryVoltage),
-		NodeBatteryLevel:   batteryLevelValue,
-		NodeTemperature:    fmt.Sprintf("%f", result.NodeStatus.NodeTemperature),
-		NodeAvgRssi:        fmt.Sprintf("%f", result.NodeStatus.NodeAvgRssi),
-		MeterMsgCountSent:  strconv.Itoa(result.NodeStatus.MeterMsgCountSent),
-		MeterPkgCountSent:  strconv.Itoa(result.NodeStatus.MeterPkgCountSent),
-		NodeVersion:        result.HubAttachments.NodeVersion,
-		Time:               time.Now().Format(time.RFC3339),
+		NodeBatteryVoltage:                  fmt.Sprintf("%f", result.NodeStatus.NodeBatteryVoltage),
+		NodeBatteryLevel:                    batteryLevelValue,
+		NodeTemperature:                     fmt.Sprintf("%f", result.NodeStatus.NodeTemperature),
+		NodeAvgRssi:                         fmt.Sprintf("%f", result.NodeStatus.NodeAvgRssi),
+		MeterMsgCountSent:                   strconv.Itoa(result.NodeStatus.MeterMsgCountSent),
+		MeterPkgCountSent:                   strconv.Itoa(result.NodeStatus.MeterPkgCountSent),
+		HubMeterMsgCountReceived:            strconv.Itoa(result.HubAttachments.MeterReadingCountRecv),
+		HubMeterPkgCountReceived:            strconv.Itoa(result.HubAttachments.MeterPkgCountRecv),
+		NodeVersion:                         result.HubAttachments.NodeVersion,
+		InvalidMeterReadingsCount:           result.Diagnostics.InvalidMeterReadingsCount,
+		ValidMeterReadingsCount:             result.Diagnostics.ValidMeterReadingsCount,
+		MeterUARTErrorCount9600:             result.Diagnostics.MeterUARTErrorCount9600,
+		MeterMsgCountSentDelta:              result.Diagnostics.MeterMsgCountSentDelta,
+		MeterPkgCountSentDelta:              result.Diagnostics.MeterPkgCountSentDelta,
+		HubMeterMsgCountReceivedDelta:       result.Diagnostics.HubMeterMsgCountReceivedDelta,
+		HubMeterPkgCountReceivedDelta:       result.Diagnostics.HubMeterPkgCountReceivedDelta,
+		HubCorruptReadingCountRecv:          result.HubAttachments.MeterCorruptReadingCountRecv,
+		HubCorruptReadingCountReceivedDelta: result.Diagnostics.HubCorruptReadingCountReceivedDelta,
+		PacketDeliveryRate:                  result.Diagnostics.PacketDeliveryRate,
+		NodeAvailable:                       result.Diagnostics.NodeAvailable,
+		LastDataAgeSeconds:                  lastDataAgeSeconds,
+		WiFiRSSI:                            result.Diagnostics.WiFiRSSI,
+		Time:                                time.Now().Format(time.RFC3339),
 	}
 }
 

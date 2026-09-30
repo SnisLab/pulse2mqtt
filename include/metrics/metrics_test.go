@@ -103,12 +103,21 @@ func TestGetMetricsUsesBasicAuth(t *testing.T) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if got, want := r.URL.Query().Get("node_id"), "7"; got != want {
-			t.Errorf("unexpected node ID: got %q, want %q", got, want)
-		}
-
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"node_status":{"battery_voltage":2.98779,"temperature":23.840141,"avg_rssi":-56.213547}}`))
+		switch r.URL.Path {
+		case "/metrics.json":
+			if got, want := r.URL.Query().Get("node_id"), "7"; got != want {
+				t.Errorf("unexpected node ID: got %q, want %q", got, want)
+			}
+			_, _ = w.Write([]byte(`{"node_status":{"battery_voltage":2.98779,"temperature":23.840141,"avg_rssi":-56.213547}}`))
+		case "/nodes.json":
+			_, _ = w.Write([]byte(`[{"node_id":7,"available":true,"last_data_ms":2500}]`))
+		case "/status.json":
+			_, _ = w.Write([]byte(`{"wifi_status":{"rssi":-63}}`))
+		default:
+			t.Errorf("unexpected diagnostics endpoint: %s", r.URL.Path)
+			http.NotFound(w, r)
+		}
 	}))
 	defer server.Close()
 
@@ -122,6 +131,9 @@ func TestGetMetricsUsesBasicAuth(t *testing.T) {
 	if got, want := result.NodeStatus.NodeBatteryVoltage, 2.98779; got != want {
 		t.Errorf("unexpected battery voltage: got %f, want %f", got, want)
 	}
+	if result.Diagnostics.NodeAvailable == nil || !*result.Diagnostics.NodeAvailable || result.Diagnostics.LastDataAgeMs == nil || *result.Diagnostics.LastDataAgeMs != 2500 || result.Diagnostics.WiFiRSSI == nil || *result.Diagnostics.WiFiRSSI != -63 {
+		t.Fatalf("supplemental bridge diagnostics were not read: %+v", result.Diagnostics)
+	}
 }
 
 func TestGetModernMetricsUsesModernEndpoint(t *testing.T) {
@@ -129,10 +141,17 @@ func TestGetModernMetricsUsesModernEndpoint(t *testing.T) {
 	t.Cleanup(func() { settings.Load = originalSettings })
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/node_metrics.json" {
+		switch r.URL.Path {
+		case "/node_metrics.json":
+			_, _ = w.Write([]byte(`{"node":{"node_version":0,"battery_voltage":3.02,"temperature":20.35,"avg_rssi":-56.27,"avg_lqi":205.64,"node_uptime":39377562,"meter_msg_count_sent":12928,"meter_pkg_count_sent":15524,"meter_msg_count_sent_delta":99,"meter_pkg_count_sent_delta":118},"ir":{"acmp_rx_autolevel_9600":133,"invalid_meter_readings_count":112,"valid_meter_readings_count":234,"baud_9600":{"uart_error_count":73}},"hub":{"meter_pkg_count_received":5628,"meter_msg_count_received":4639,"meter_pkg_count_received_delta":94,"meter_msg_count_received_delta":72,"meter_corrupt_reading_count_received_delta":2},"packet_delivery_rate":95.8}`))
+		case "/nodes.json":
+			_, _ = w.Write([]byte(`[{"node_id":1,"available":true,"last_data_ms":1700}]`))
+		case "/status.json":
+			_, _ = w.Write([]byte(`{"wifi_status":{"rssi":-66}}`))
+		default:
 			t.Errorf("unexpected endpoint: %s", r.URL.Path)
+			http.NotFound(w, r)
 		}
-		_, _ = w.Write([]byte(`{"node":{"node_version":0,"battery_voltage":3.02,"temperature":20.35,"avg_rssi":-56.27,"avg_lqi":205.64,"node_uptime":39377562,"meter_msg_count_sent":12928,"meter_pkg_count_sent":15524},"ir":{"acmp_rx_autolevel_9600":133},"hub":{"meter_pkg_count_received":5628,"meter_msg_count_received":4639},"packet_delivery_rate":95.8}`))
 	}))
 	defer server.Close()
 
@@ -149,5 +168,17 @@ func TestGetModernMetricsUsesModernEndpoint(t *testing.T) {
 	}
 	if result.NodeStatus.NodeUptimeMs != 39377562 || result.HubAttachments.MeterPkgCountRecv != 5628 {
 		t.Fatalf("modern counters were not read: %+v / %+v", result.NodeStatus, result.HubAttachments)
+	}
+	if result.Diagnostics.InvalidMeterReadingsCount == nil || *result.Diagnostics.InvalidMeterReadingsCount != 112 || result.Diagnostics.ValidMeterReadingsCount == nil || *result.Diagnostics.ValidMeterReadingsCount != 234 || result.Diagnostics.MeterUARTErrorCount9600 == nil || *result.Diagnostics.MeterUARTErrorCount9600 != 73 {
+		t.Fatalf("modern IR diagnostics were not mapped: %+v", result.Diagnostics)
+	}
+	if result.Diagnostics.HubCorruptReadingCountReceivedDelta == nil || *result.Diagnostics.HubCorruptReadingCountReceivedDelta != 2 || result.Diagnostics.PacketDeliveryRate == nil || *result.Diagnostics.PacketDeliveryRate != 95.8 || result.Diagnostics.MeterMsgCountSentDelta == nil || *result.Diagnostics.MeterMsgCountSentDelta != 99 {
+		t.Fatalf("modern transport diagnostics were not mapped: %+v", result.Diagnostics)
+	}
+	if result.Diagnostics.HubMeterMsgCountReceivedDelta == nil || *result.Diagnostics.HubMeterMsgCountReceivedDelta != 72 || result.Diagnostics.HubMeterPkgCountReceivedDelta == nil || *result.Diagnostics.HubMeterPkgCountReceivedDelta != 94 {
+		t.Fatalf("modern hub receive deltas were not mapped: %+v", result.Diagnostics)
+	}
+	if result.Diagnostics.NodeAvailable == nil || !*result.Diagnostics.NodeAvailable || result.Diagnostics.LastDataAgeMs == nil || *result.Diagnostics.LastDataAgeMs != 1700 || result.Diagnostics.WiFiRSSI == nil || *result.Diagnostics.WiFiRSSI != -66 {
+		t.Fatalf("bridge availability diagnostics were not read: %+v", result.Diagnostics)
 	}
 }

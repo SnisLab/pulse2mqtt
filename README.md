@@ -33,6 +33,20 @@ Run with `-v` to see when readings came from an individually CRC-valid message
 inside a transport-CRC-invalid frame. Such a recovered measurement has a valid
 message CRC, but the original transport frame remains invalid as a whole.
 
+## Pulse diagnostics
+
+The MQTT metrics topic keeps the existing battery, temperature, RSSI, message
+and package counters. When the bridge exposes them, the payload also includes
+`InvalidMeterReadingsCount`, `ValidMeterReadingsCount`,
+`MeterUARTErrorCount9600`, `MeterMsgCountSentDelta`,
+`MeterPkgCountSentDelta`, hub-received message/package totals and their
+interval deltas, `HubCorruptReadingCountRecv` (legacy cumulative),
+`HubCorruptReadingCountReceivedDelta` (modern interval), and
+`PacketDeliveryRate`. The node and bridge endpoints add `NodeAvailable`,
+`LastDataAgeSeconds`, and `WiFiRSSI`. These fields are omitted when their
+source endpoint or firmware does not provide them. Home Assistant MQTT
+Discovery adds diagnostic entities for the available fields.
+
 ## Releases
 
 Every push and pull request targeting `main` runs the tests and validates the GoReleaser configuration. Every push to `main` additionally publishes an immutable release.

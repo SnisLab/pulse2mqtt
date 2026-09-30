@@ -92,6 +92,11 @@ func TestBuildDiscoveryConfig(t *testing.T) {
 	if config.Components["temperature"].EntityCategory != "diagnostic" {
 		t.Error("temperature must be a diagnostic entity")
 	}
+	for _, key := range []string{"invalid_meter_readings", "valid_meter_readings", "meter_uart_errors_9600", "hub_meter_messages_received", "hub_meter_packages_received", "hub_meter_messages_received_delta", "hub_meter_packages_received_delta", "hub_corrupt_readings_received", "hub_corrupt_readings_delta", "packet_delivery_rate", "node_available", "last_data_age", "wifi_rssi", "meter_messages_delta", "meter_packages_delta"} {
+		if _, ok := config.Components[key]; !ok {
+			t.Errorf("missing diagnostic discovery entity %q", key)
+		}
+	}
 
 	settings.Load.Service.Pulse.BatteryProfile = "regulated_1_5v"
 	payload, err = buildDiscoveryConfig()
@@ -181,6 +186,53 @@ func TestCurrentMetricsMessageOmitsUnknownBatteryLevel(t *testing.T) {
 	}
 	if _, ok := fields["NodeBatteryLevel"]; ok {
 		t.Fatal("unknown battery profile must omit NodeBatteryLevel")
+	}
+}
+
+func TestCurrentMetricsMessageIncludesPulseDiagnostics(t *testing.T) {
+	result := metrics.Metrics{}
+	invalid, valid, uart, sentDelta, pkgDelta, corrupt, corruptDelta, hubMsgDelta, hubPkgDelta, wifi := 12, 230, 7, 99, 117, 5, 2, 72, 94, -66
+	delivery := 80.51
+	available := true
+	lastDataMS := int64(1750)
+	result.Diagnostics.InvalidMeterReadingsCount = &invalid
+	result.Diagnostics.ValidMeterReadingsCount = &valid
+	result.Diagnostics.MeterUARTErrorCount9600 = &uart
+	result.Diagnostics.MeterMsgCountSentDelta = &sentDelta
+	result.Diagnostics.MeterPkgCountSentDelta = &pkgDelta
+	result.Diagnostics.HubMeterMsgCountReceivedDelta = &hubMsgDelta
+	result.Diagnostics.HubMeterPkgCountReceivedDelta = &hubPkgDelta
+	result.HubAttachments.MeterReadingCountRecv = 8191
+	result.HubAttachments.MeterPkgCountRecv = 41016
+	result.HubAttachments.MeterCorruptReadingCountRecv = &corrupt
+	result.Diagnostics.HubCorruptReadingCountReceivedDelta = &corruptDelta
+	result.Diagnostics.PacketDeliveryRate = &delivery
+	result.Diagnostics.NodeAvailable = &available
+	result.Diagnostics.LastDataAgeMs = &lastDataMS
+	result.Diagnostics.WiFiRSSI = &wifi
+
+	message := currentMetricsMessage(result)
+	if message.LastDataAgeSeconds == nil || *message.LastDataAgeSeconds != 1.75 {
+		t.Fatalf("last data age was not converted to seconds: %v", message.LastDataAgeSeconds)
+	}
+	if message.InvalidMeterReadingsCount == nil || *message.InvalidMeterReadingsCount != invalid || message.HubCorruptReadingCountRecv == nil || *message.HubCorruptReadingCountRecv != corrupt || message.HubCorruptReadingCountReceivedDelta == nil || *message.HubCorruptReadingCountReceivedDelta != corruptDelta || message.PacketDeliveryRate == nil || *message.PacketDeliveryRate != delivery || message.NodeAvailable == nil || !*message.NodeAvailable {
+		t.Fatalf("pulse diagnostics missing from MQTT metrics: %+v", message)
+	}
+	if message.HubMeterMsgCountReceived != "8191" || message.HubMeterPkgCountReceived != "41016" || message.HubMeterMsgCountReceivedDelta == nil || *message.HubMeterMsgCountReceivedDelta != hubMsgDelta || message.HubMeterPkgCountReceivedDelta == nil || *message.HubMeterPkgCountReceivedDelta != hubPkgDelta {
+		t.Fatalf("hub receive counters missing from MQTT metrics: %+v", message)
+	}
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"InvalidMeterReadingsCount", "ValidMeterReadingsCount", "MeterUARTErrorCount9600", "MeterMsgCountSentDelta", "MeterPkgCountSentDelta", "HubMeterMsgCountReceived", "HubMeterPkgCountReceived", "HubMeterMsgCountReceivedDelta", "HubMeterPkgCountReceivedDelta", "HubCorruptReadingCountRecv", "HubCorruptReadingCountReceivedDelta", "PacketDeliveryRate", "NodeAvailable", "LastDataAgeSeconds", "WiFiRSSI"} {
+		if _, ok := fields[key]; !ok {
+			t.Errorf("MQTT metrics payload missing %s", key)
+		}
 	}
 }
 

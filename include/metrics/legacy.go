@@ -11,9 +11,13 @@ import (
 )
 
 func getLegacyMetrics() Metrics {
-	return fetchMetrics(pulse.LegacyMetricsPath(), func(body []byte, result *Metrics) error {
+	result := fetchMetrics(pulse.LegacyMetricsPath(), func(body []byte, result *Metrics) error {
 		return json.Unmarshal(body, result)
 	})
+	result.Diagnostics.InvalidMeterReadingsCount = result.NodeStatus.InvalidMeterReadingsCount
+	result.Diagnostics.ValidMeterReadingsCount = result.NodeStatus.ValidMeterReadingsCount
+	result.Diagnostics.MeterUARTErrorCount9600 = result.NodeStatus.Baud9600.UARTErrorCount
+	return result
 }
 
 func fetchMetrics(path string, decode func([]byte, *Metrics) error) Metrics {
