@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1.29
+
+### Added
+
+- feat: salvage CRC-valid SML readings (e008d6d)
+
+### Changed
+
+- refactor: use strict SML transport parsing (31799cb)
+
+
 ## 0.5.9.28
 
 ### Fixed
