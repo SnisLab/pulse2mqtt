@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.4.31
+
+### Added
+
+- feat: publish Pulse bridge diagnostics (08f43e1)
+
+
 ## 0.6.2.30
 
 ### Fixed
