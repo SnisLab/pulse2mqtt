@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2.30
+
+### Fixed
+
+- fix: remove redundant modern data retry (24ac84a)
+
+
 ## 0.6.1.29
 
 ### Added
