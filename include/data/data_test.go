@@ -246,26 +246,13 @@ func TestModernPulseSalvagesOnlyCRCValidGetListFromDamagedTransport(t *testing.T
 	}
 }
 
-func TestModernDataRetriesAfterParseError(t *testing.T) {
-	hexData, err := os.ReadFile("testdata/node_data_strict_valid.hex")
-	if err != nil {
-		t.Fatal(err)
-	}
-	frame, err := hex.DecodeString(strings.TrimSpace(string(hexData)))
-	if err != nil {
-		t.Fatal(err)
-	}
-
+func TestModernDataDoesNotRetryFailedPoll(t *testing.T) {
 	originalSettings := settings.Load
 	t.Cleanup(func() { settings.Load = originalSettings })
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
-		if requests == 1 {
-			_, _ = w.Write([]byte("invalid"))
-			return
-		}
-		_, _ = w.Write(frame)
+		_, _ = w.Write([]byte("invalid"))
 	}))
 	defer server.Close()
 	settings.Load.Service.Pulse.IP = strings.TrimPrefix(server.URL, "http://")
@@ -276,11 +263,11 @@ func TestModernDataRetriesAfterParseError(t *testing.T) {
 	}
 
 	result := GetData()
-	if requests != 2 {
-		t.Fatalf("made %d requests, want 2", requests)
+	if requests != 1 {
+		t.Fatalf("made %d requests, want one request for this poll", requests)
 	}
-	if !result.Valid() {
-		t.Fatal("retry did not return valid data")
+	if result.Valid() {
+		t.Fatal("invalid response returned readings")
 	}
 }
 

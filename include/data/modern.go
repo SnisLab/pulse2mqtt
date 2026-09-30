@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strconv"
-	"time"
 
 	log "github.com/DjSni/go-log"
 	sml "github.com/DjSni/go-sml"
@@ -14,18 +13,12 @@ import (
 )
 
 func getModernData() Data {
-	for attempt := 0; attempt < 2; attempt++ {
-		result, err := fetchModernData()
-		if err == nil {
-			return result
-		}
-		if attempt == 0 {
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-		log.Error("Modern data request failed after retry:", err)
+	result, err := fetchModernData()
+	if err != nil {
+		log.Error("Modern data request failed:", err)
+		return Data{}
 	}
-	return Data{}
+	return result
 }
 
 func fetchModernData() (Data, error) {
